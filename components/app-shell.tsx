@@ -4,8 +4,8 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { usePathname } from "next/navigation"
+import { Logo } from "@/components/logo"
 import { LayoutDashboard, PlusCircle, Settings, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -33,14 +33,7 @@ export function AppShell({ children }: AppShellProps) {
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
         <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo-main.png"
-            alt="SubSense"
-            width={120}
-            height={32}
-            className="h-8 w-auto"
-            priority
-          />
+          <Logo size="md" priority />
         </Link>
         <ThemeToggle />
       </header>
@@ -62,14 +55,7 @@ export function AppShell({ children }: AppShellProps) {
       >
         {/* Logo */}
         <Link href="/" className="flex h-14 items-center gap-2 border-b border-sidebar-border px-6">
-          <Image
-            src="/logo-main.png"
-            alt="SubSense"
-            width={140}
-            height={36}
-            className="h-9 w-auto"
-            priority
-          />
+          <Logo size="lg" priority />
         </Link>
 
         {/* Navigation */}

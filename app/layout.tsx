@@ -10,6 +10,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://subsense.app"),
   title: "SubSense - AI Subscription ROI Optimizer",
   description:
     "Analyze your paid software subscriptions and rank them by ROI. Identify waste and optimization opportunities.",
