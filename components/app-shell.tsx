@@ -4,8 +4,9 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, PlusCircle, Settings, Menu, X, Sparkles } from "lucide-react"
+import { LayoutDashboard, PlusCircle, Settings, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -31,10 +32,16 @@ export function AppShell({ children }: AppShellProps) {
         <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle menu">
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <span className="font-semibold">SubSense</span>
-        </div>
+        <Link href="/" className="flex items-center gap-2">
+          <Image
+            src="/logo-main.png"
+            alt="SubSense"
+            width={120}
+            height={32}
+            className="h-8 w-auto"
+            priority
+          />
+        </Link>
         <ThemeToggle />
       </header>
 
@@ -54,10 +61,16 @@ export function AppShell({ children }: AppShellProps) {
         )}
       >
         {/* Logo */}
-        <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-6">
-          <Sparkles className="h-6 w-6 text-primary" />
-          <span className="text-lg font-semibold text-sidebar-foreground">SubSense</span>
-        </div>
+        <Link href="/" className="flex h-14 items-center gap-2 border-b border-sidebar-border px-6">
+          <Image
+            src="/logo-main.png"
+            alt="SubSense"
+            width={140}
+            height={36}
+            className="h-9 w-auto"
+            priority
+          />
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">
