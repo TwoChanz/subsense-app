@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,8 +16,9 @@ import { toast } from "sonner"
 import { useTheme } from "next-themes"
 import { Moon, Sun, Monitor, RotateCcw, Sparkles } from "lucide-react"
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { theme, setTheme } = useTheme()
+  const searchParams = useSearchParams()
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [notifications, setNotifications] = useState(true)
@@ -30,6 +32,25 @@ export default function SettingsPage() {
     setEmailReports(settings.emailReports)
     setEmailAddress(settings.emailAddress)
   }, [])
+
+  // Handle Stripe redirect
+  useEffect(() => {
+    const success = searchParams.get("success")
+    const canceled = searchParams.get("canceled")
+
+    if (success === "true") {
+      toast.success("Welcome to SubSense Pro!", {
+        description: "Your subscription is now active. Enjoy the premium features!",
+      })
+      // Clear the URL params
+      window.history.replaceState({}, "", "/settings")
+    } else if (canceled === "true") {
+      toast.info("Checkout canceled", {
+        description: "No worries, you can upgrade anytime.",
+      })
+      window.history.replaceState({}, "", "/settings")
+    }
+  }, [searchParams])
 
   const handleNotificationsChange = (checked: boolean) => {
     setNotifications(checked)
@@ -216,7 +237,36 @@ export default function SettingsPage() {
       />
 
       {/* Upgrade Modal */}
-      <UpgradeModal open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen} />
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        defaultEmail={emailAddress}
+      />
+    </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<SettingsPageSkeleton />}>
+      <SettingsContent />
+    </Suspense>
+  )
+}
+
+function SettingsPageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="h-9 w-32 bg-muted animate-pulse rounded" />
+        <div className="h-5 w-64 bg-muted animate-pulse rounded mt-1" />
+      </div>
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="rounded-lg border p-6">
+          <div className="h-6 w-32 bg-muted animate-pulse rounded mb-2" />
+          <div className="h-4 w-48 bg-muted animate-pulse rounded" />
+        </div>
+      ))}
     </div>
   )
 }

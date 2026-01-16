@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -8,12 +9,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, Zap, BarChart3, Bell, Mail, Cloud } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Sparkles, Zap, BarChart3, Bell, Mail, Cloud, Loader2, CreditCard } from "lucide-react"
+import { createCheckoutSession } from "@/lib/stripe-client"
+import { toast } from "sonner"
 
 interface UpgradeModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  defaultEmail?: string
 }
 
 const proFeatures = [
@@ -39,7 +44,32 @@ const proFeatures = [
   },
 ]
 
-export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
+export function UpgradeModal({ open, onOpenChange, defaultEmail = "" }: UpgradeModalProps) {
+  const [email, setEmail] = useState(defaultEmail)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleCheckout = async () => {
+    if (!email) {
+      toast.error("Please enter your email address")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const checkoutUrl = await createCheckoutSession(email)
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl
+      }
+    } catch (error) {
+      console.error("Checkout error:", error)
+      toast.error("Failed to start checkout", {
+        description: error instanceof Error ? error.message : "Please try again",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -60,10 +90,9 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
               <span className="text-3xl font-bold">$4.99</span>
               <span className="text-muted-foreground">/month</span>
             </div>
-            <Badge variant="secondary" className="mt-2">
-              <Zap className="mr-1 h-3 w-3" />
-              Coming Soon
-            </Badge>
+            <p className="text-xs text-muted-foreground mt-1">
+              Cancel anytime
+            </p>
           </div>
 
           {/* Features */}
@@ -80,17 +109,43 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
               </div>
             ))}
           </div>
+
+          {/* Email Input */}
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="checkout-email">Email address</Label>
+            <Input
+              id="checkout-email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* CTA */}
         <div className="space-y-2">
-          <Button className="w-full" disabled>
-            <Check className="mr-2 h-4 w-4" />
-            Notify Me When Available
+          <Button
+            className="w-full"
+            onClick={handleCheckout}
+            disabled={isLoading || !email}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Redirecting to checkout...
+              </>
+            ) : (
+              <>
+                <CreditCard className="mr-2 h-4 w-4" />
+                Subscribe Now
+              </>
+            )}
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            We&apos;ll let you know when Pro is ready
-          </p>
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Zap className="h-3 w-3" />
+            <span>Secure payment via Stripe</span>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
