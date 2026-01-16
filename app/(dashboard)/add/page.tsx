@@ -11,26 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ROIProgress } from "@/components/roi-progress"
 import { StatusBadge } from "@/components/status-badge"
-import { addSubscription, getSubscriptionById, updateSubscription } from "@/lib/store"
+import { addSubscription, getSubscriptionById, updateSubscription, isNameDuplicate } from "@/lib/store"
 import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
+import { CATEGORIES } from "@/lib/constants"
 import type { UsageFrequency, Importance } from "@/lib/types"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-
-const categories = [
-  "Communication",
-  "Productivity",
-  "Design",
-  "Development",
-  "Marketing",
-  "Security",
-  "Education",
-  "Finance",
-  "Entertainment",
-  "Writing",
-  "Other",
-]
 
 export default function AddSubscriptionPage() {
   const router = useRouter()
@@ -43,6 +30,8 @@ export default function AddSubscriptionPage() {
   const [monthlyCost, setMonthlyCost] = useState("")
   const [usageFrequency, setUsageFrequency] = useState<UsageFrequency | "">("")
   const [importance, setImportance] = useState<Importance | "">("")
+  const [notFound, setNotFound] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   // Load existing data if editing
   useEffect(() => {
@@ -54,9 +43,22 @@ export default function AddSubscriptionPage() {
         setMonthlyCost(subscription.monthlyCost.toString())
         setUsageFrequency(subscription.usageFrequency)
         setImportance(subscription.importance)
+        setNotFound(false)
+      } else {
+        setNotFound(true)
       }
     }
   }, [editId])
+
+  // Validate name for duplicates
+  useEffect(() => {
+    if (name.trim()) {
+      const isDuplicate = isNameDuplicate(name, editId || undefined)
+      setNameError(isDuplicate ? "A subscription with this name already exists" : null)
+    } else {
+      setNameError(null)
+    }
+  }, [name, editId])
 
   // Calculate preview ROI
   const previewROI =
@@ -71,7 +73,7 @@ export default function AddSubscriptionPage() {
   const previewStatus = previewROI !== null ? getStatusFromScore(previewROI) : null
 
   const isValid =
-    name.trim() && category && monthlyCost && Number.parseFloat(monthlyCost) > 0 && usageFrequency && importance
+    name.trim() && !nameError && category && monthlyCost && Number.parseFloat(monthlyCost) > 0 && usageFrequency && importance
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,6 +104,38 @@ export default function AddSubscriptionPage() {
     }
 
     router.push("/")
+  }
+
+  // Show not found state if editing a non-existent subscription
+  if (notFound) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Back to dashboard</span>
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Subscription Not Found</h1>
+            <p className="text-muted-foreground mt-1">
+              The subscription you&apos;re trying to edit doesn&apos;t exist or has been deleted.
+            </p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium mb-2">Subscription not found</p>
+            <p className="text-muted-foreground mb-4">This subscription may have been deleted.</p>
+            <Button asChild>
+              <Link href="/">Return to Dashboard</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -138,7 +172,14 @@ export default function AddSubscriptionPage() {
                   placeholder="e.g., Slack, Notion, Adobe..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  className={nameError ? "border-destructive" : ""}
                 />
+                {nameError && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {nameError}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -148,7 +189,7 @@ export default function AddSubscriptionPage() {
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((cat) => (
+                    {CATEGORIES.map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {cat}
                       </SelectItem>

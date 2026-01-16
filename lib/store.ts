@@ -1,5 +1,6 @@
 import type { Subscription, KPIData } from "./types"
 import { calculateROIScore, getStatusFromScore } from "./scoring"
+import { generateId } from "./constants"
 
 // Initial mock subscriptions
 const initialSubscriptions: Subscription[] = [
@@ -103,13 +104,20 @@ export function getSubscriptionById(id: string): Subscription | undefined {
   return subscriptions.find((sub) => sub.id === id)
 }
 
+export function isNameDuplicate(name: string, excludeId?: string): boolean {
+  const normalizedName = name.trim().toLowerCase()
+  return subscriptions.some(
+    (sub) => sub.name.toLowerCase() === normalizedName && sub.id !== excludeId
+  )
+}
+
 export function addSubscription(data: Omit<Subscription, "id" | "roiScore" | "status" | "createdAt">): Subscription {
   const roiScore = calculateROIScore(data.usageFrequency, data.importance, data.monthlyCost)
   const status = getStatusFromScore(roiScore)
 
   const newSubscription: Subscription = {
     ...data,
-    id: Date.now().toString(),
+    id: generateId(),
     roiScore,
     status,
     createdAt: new Date(),

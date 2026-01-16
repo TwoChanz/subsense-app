@@ -12,7 +12,7 @@ import { ROIProgress } from "@/components/roi-progress"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { EmptyState } from "@/components/empty-state"
 import type { Subscription } from "@/lib/types"
-import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package } from "lucide-react"
+import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown } from "lucide-react"
 import { toast } from "sonner"
 
 interface SubscriptionTableProps {
@@ -50,6 +50,15 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
       setSortField(field)
       setSortDirection("desc")
     }
+  }
+
+  const SortIndicator = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null
+    return sortDirection === "asc" ? (
+      <ArrowUp className="inline h-4 w-4 ml-1" />
+    ) : (
+      <ArrowDown className="inline h-4 w-4 ml-1" />
+    )
   }
 
   const handleDelete = () => {
@@ -120,24 +129,28 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
             <TableRow>
               <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("name")}>
                 Name
+                <SortIndicator field="name" />
               </TableHead>
               <TableHead
                 className="cursor-pointer hover:text-foreground hidden sm:table-cell"
                 onClick={() => handleSort("category")}
               >
                 Category
+                <SortIndicator field="category" />
               </TableHead>
               <TableHead
                 className="cursor-pointer hover:text-foreground text-right"
                 onClick={() => handleSort("monthlyCost")}
               >
                 Cost/mo
+                <SortIndicator field="monthlyCost" />
               </TableHead>
               <TableHead
                 className="cursor-pointer hover:text-foreground hidden md:table-cell"
                 onClick={() => handleSort("roiScore")}
               >
                 ROI Score
+                <SortIndicator field="roiScore" />
               </TableHead>
               <TableHead className="hidden lg:table-cell">Status</TableHead>
               <TableHead className="w-[70px]">
