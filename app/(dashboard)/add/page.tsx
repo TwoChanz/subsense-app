@@ -1,0 +1,247 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ROIProgress } from "@/components/roi-progress"
+import { StatusBadge } from "@/components/status-badge"
+import { addSubscription, getSubscriptionById, updateSubscription } from "@/lib/store"
+import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
+import type { UsageFrequency, Importance } from "@/lib/types"
+import { ArrowLeft } from "lucide-react"
+import Link from "next/link"
+import { toast } from "sonner"
+
+const categories = [
+  "Communication",
+  "Productivity",
+  "Design",
+  "Development",
+  "Marketing",
+  "Security",
+  "Education",
+  "Finance",
+  "Entertainment",
+  "Writing",
+  "Other",
+]
+
+export default function AddSubscriptionPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get("edit")
+  const isEditing = !!editId
+
+  const [name, setName] = useState("")
+  const [category, setCategory] = useState("")
+  const [monthlyCost, setMonthlyCost] = useState("")
+  const [usageFrequency, setUsageFrequency] = useState<UsageFrequency | "">("")
+  const [importance, setImportance] = useState<Importance | "">("")
+
+  // Load existing data if editing
+  useEffect(() => {
+    if (editId) {
+      const subscription = getSubscriptionById(editId)
+      if (subscription) {
+        setName(subscription.name)
+        setCategory(subscription.category)
+        setMonthlyCost(subscription.monthlyCost.toString())
+        setUsageFrequency(subscription.usageFrequency)
+        setImportance(subscription.importance)
+      }
+    }
+  }, [editId])
+
+  // Calculate preview ROI
+  const previewROI =
+    usageFrequency && importance && monthlyCost
+      ? calculateROIScore(
+          usageFrequency as UsageFrequency,
+          importance as Importance,
+          Number.parseFloat(monthlyCost) || 0,
+        )
+      : null
+
+  const previewStatus = previewROI !== null ? getStatusFromScore(previewROI) : null
+
+  const isValid =
+    name.trim() && category && monthlyCost && Number.parseFloat(monthlyCost) > 0 && usageFrequency && importance
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isValid) return
+
+    if (isEditing && editId) {
+      updateSubscription(editId, {
+        name: name.trim(),
+        category,
+        monthlyCost: Number.parseFloat(monthlyCost),
+        usageFrequency: usageFrequency as UsageFrequency,
+        importance: importance as Importance,
+      })
+      toast.success("Subscription updated", {
+        description: `${name} has been updated successfully.`,
+      })
+    } else {
+      addSubscription({
+        name: name.trim(),
+        category,
+        monthlyCost: Number.parseFloat(monthlyCost),
+        usageFrequency: usageFrequency as UsageFrequency,
+        importance: importance as Importance,
+      })
+      toast.success("Subscription added", {
+        description: `${name} has been added to your list.`,
+      })
+    }
+
+    router.push("/")
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/">
+            <ArrowLeft className="h-5 w-5" />
+            <span className="sr-only">Back to dashboard</span>
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{isEditing ? "Edit Subscription" : "Add Subscription"}</h1>
+          <p className="text-muted-foreground mt-1">
+            {isEditing ? "Update your subscription details" : "Add a new subscription to track its ROI"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Subscription Details</CardTitle>
+            <CardDescription>Enter the details of your subscription service</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  placeholder="e.g., Slack, Notion, Adobe..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cost">Monthly Cost ($)</Label>
+                <Input
+                  id="cost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={monthlyCost}
+                  onChange={(e) => setMonthlyCost(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="frequency">Usage Frequency</Label>
+                <Select value={usageFrequency} onValueChange={(v) => setUsageFrequency(v as UsageFrequency)}>
+                  <SelectTrigger id="frequency">
+                    <SelectValue placeholder="How often do you use it?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="rare">Rarely</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="importance">Importance</Label>
+                <Select value={importance} onValueChange={(v) => setImportance(v as Importance)}>
+                  <SelectTrigger id="importance">
+                    <SelectValue placeholder="How important is it?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High - Essential for work</SelectItem>
+                    <SelectItem value="medium">Medium - Useful but not critical</SelectItem>
+                    <SelectItem value="low">Low - Nice to have</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button type="submit" disabled={!isValid} className="flex-1">
+                  {isEditing ? "Update Subscription" : "Add Subscription"}
+                </Button>
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/">Cancel</Link>
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Preview */}
+        <Card>
+          <CardHeader>
+            <CardTitle>ROI Preview</CardTitle>
+            <CardDescription>See how your subscription will be scored</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {previewROI !== null && previewStatus ? (
+              <>
+                <div className="text-center">
+                  <div className="text-6xl font-bold mb-2">{previewROI}</div>
+                  <p className="text-muted-foreground">ROI Score</p>
+                </div>
+                <ROIProgress score={previewROI} size="lg" showLabel={false} />
+                <div className="flex justify-center">
+                  <StatusBadge status={previewStatus} />
+                </div>
+                <div className="text-sm text-muted-foreground text-center">
+                  {previewStatus === "good" && "This subscription has a strong ROI. Keep it!"}
+                  {previewStatus === "review" && "Consider reviewing this subscription for potential optimization."}
+                  {previewStatus === "cut" && "This subscription may not be worth the cost. Consider canceling."}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Fill in the form to see your ROI preview</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
