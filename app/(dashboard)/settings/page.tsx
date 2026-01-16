@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,16 +8,51 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { resetSubscriptions } from "@/lib/store"
+import { getSettings, updateSetting } from "@/lib/settings"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { UpgradeModal } from "@/components/upgrade-modal"
 import { toast } from "sonner"
 import { useTheme } from "next-themes"
-import { Moon, Sun, Monitor, RotateCcw } from "lucide-react"
+import { Moon, Sun, Monitor, RotateCcw, Sparkles } from "lucide-react"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [notifications, setNotifications] = useState(true)
   const [emailReports, setEmailReports] = useState(false)
+  const [emailAddress, setEmailAddress] = useState("")
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const settings = getSettings()
+    setNotifications(settings.pushNotifications)
+    setEmailReports(settings.emailReports)
+    setEmailAddress(settings.emailAddress)
+  }, [])
+
+  const handleNotificationsChange = (checked: boolean) => {
+    setNotifications(checked)
+    updateSetting("pushNotifications", checked)
+    toast.success(checked ? "Notifications enabled" : "Notifications disabled")
+  }
+
+  const handleEmailReportsChange = (checked: boolean) => {
+    setEmailReports(checked)
+    updateSetting("emailReports", checked)
+    if (checked) {
+      toast.success("Email reports enabled", {
+        description: "You'll receive weekly ROI summaries (coming soon)",
+      })
+    } else {
+      toast.success("Email reports disabled")
+    }
+  }
+
+  const handleEmailChange = (value: string) => {
+    setEmailAddress(value)
+    updateSetting("emailAddress", value)
+  }
 
   const handleReset = () => {
     resetSubscriptions()
@@ -92,7 +127,7 @@ export default function SettingsPage() {
               <Label htmlFor="notifications">Push Notifications</Label>
               <p className="text-sm text-muted-foreground">Receive alerts about subscription changes</p>
             </div>
-            <Switch id="notifications" checked={notifications} onCheckedChange={setNotifications} />
+            <Switch id="notifications" checked={notifications} onCheckedChange={handleNotificationsChange} />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -100,12 +135,12 @@ export default function SettingsPage() {
               <Label htmlFor="email-reports">Email Reports</Label>
               <p className="text-sm text-muted-foreground">Weekly summary of your subscription ROI</p>
             </div>
-            <Switch id="email-reports" checked={emailReports} onCheckedChange={setEmailReports} />
+            <Switch id="email-reports" checked={emailReports} onCheckedChange={handleEmailReportsChange} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Account (Placeholder) */}
+      {/* Account */}
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
@@ -114,13 +149,23 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" disabled />
-            <p className="text-xs text-muted-foreground">Account features coming soon</p>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={emailAddress}
+              onChange={(e) => handleEmailChange(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {emailReports
+                ? "Weekly reports will be sent to this address"
+                : "Enter your email to receive reports"}
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Billing (Placeholder) */}
+      {/* Billing */}
       <Card>
         <CardHeader>
           <CardTitle>Billing</CardTitle>
@@ -128,8 +173,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border border-dashed border-border p-6 text-center">
-            <p className="text-sm text-muted-foreground">Billing features will be available in a future update.</p>
-            <Button variant="outline" className="mt-4 bg-transparent" disabled>
+            <p className="text-sm text-muted-foreground mb-4">
+              Unlock advanced features with SubSense Pro
+            </p>
+            <Button variant="default" onClick={() => setUpgradeModalOpen(true)}>
+              <Sparkles className="mr-2 h-4 w-4" />
               Upgrade to Pro
             </Button>
           </div>
@@ -166,6 +214,9 @@ export default function SettingsPage() {
         onConfirm={handleReset}
         variant="destructive"
       />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen} />
     </div>
   )
 }
