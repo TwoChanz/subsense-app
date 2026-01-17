@@ -1,14 +1,15 @@
 // Subscription categories
 export const CATEGORIES = [
+  "Business",
   "Communication",
-  "Productivity",
   "Design",
   "Development",
-  "Marketing",
-  "Security",
   "Education",
-  "Finance",
   "Entertainment",
+  "Finance",
+  "Marketing",
+  "Productivity",
+  "Security",
   "Writing",
   "Other",
 ] as const

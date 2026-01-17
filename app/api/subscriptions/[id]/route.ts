@@ -7,6 +7,7 @@ import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
 const updateSubscriptionSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   category: z.string().min(1).max(50).optional(),
+  secondaryCategory: z.string().max(50).optional().nullable(),
   monthlyCost: z.number().positive().optional(),
   usageFrequency: z.enum(["daily", "weekly", "monthly", "rare"]).optional(),
   importance: z.enum(["low", "medium", "high"]).optional(),
@@ -71,7 +72,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Subscription not found" }, { status: 404 })
     }
 
-    const { name, category, monthlyCost, usageFrequency, importance } = validation.data
+    const { name, category, secondaryCategory, monthlyCost, usageFrequency, importance } = validation.data
 
     // Check for duplicate name if name is being updated
     if (name && name.toLowerCase() !== existing.name.toLowerCase()) {
@@ -91,17 +92,22 @@ export async function PATCH(
       }
     }
 
-    // Calculate new ROI score if any relevant fields changed (now category-aware)
+    // Calculate new ROI score if any relevant fields changed (category-aware with secondary)
     const updatedUsageFrequency = usageFrequency ?? existing.usageFrequency
     const updatedImportance = importance ?? existing.importance
     const updatedMonthlyCost = monthlyCost ?? existing.monthlyCost
     const updatedCategory = category ?? existing.category
+    // Handle secondaryCategory: undefined means not provided, null means explicitly cleared
+    const updatedSecondaryCategory = secondaryCategory === undefined
+      ? existing.secondaryCategory
+      : secondaryCategory
 
     const roiScore = calculateROIScore(
       updatedUsageFrequency as "daily" | "weekly" | "monthly" | "rare",
       updatedImportance as "low" | "medium" | "high",
       updatedMonthlyCost,
-      updatedCategory
+      updatedCategory,
+      updatedSecondaryCategory
     )
     const status = getStatusFromScore(roiScore)
 
@@ -110,6 +116,7 @@ export async function PATCH(
       data: {
         ...(name && { name }),
         ...(category && { category }),
+        ...(secondaryCategory !== undefined && { secondaryCategory }),
         ...(monthlyCost !== undefined && { monthlyCost }),
         ...(usageFrequency && { usageFrequency }),
         ...(importance && { importance }),

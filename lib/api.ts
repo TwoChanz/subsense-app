@@ -38,6 +38,7 @@ export async function fetchSubscriptionById(id: string): Promise<Subscription | 
 export async function createSubscription(data: {
   name: string
   category: string
+  secondaryCategory?: string | null
   monthlyCost: number
   usageFrequency: string
   importance: string
@@ -63,6 +64,7 @@ export async function updateSubscription(
   data: {
     name?: string
     category?: string
+    secondaryCategory?: string | null
     monthlyCost?: number
     usageFrequency?: string
     importance?: string

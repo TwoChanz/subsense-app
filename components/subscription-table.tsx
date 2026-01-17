@@ -36,7 +36,8 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
     .filter(
       (sub) =>
         sub.name.toLowerCase().includes(search.toLowerCase()) ||
-        sub.category.toLowerCase().includes(search.toLowerCase()),
+        sub.category.toLowerCase().includes(search.toLowerCase()) ||
+        (sub.secondaryCategory && sub.secondaryCategory.toLowerCase().includes(search.toLowerCase())),
     )
     .sort((a, b) => {
       const modifier = sortDirection === "asc" ? 1 : -1
@@ -176,7 +177,12 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
             {paginatedData.map((sub) => (
               <TableRow key={sub.id}>
                 <TableCell className="font-medium">{sub.name}</TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground">{sub.category}</TableCell>
+                <TableCell className="hidden sm:table-cell text-muted-foreground">
+                  {sub.category}
+                  {sub.secondaryCategory && (
+                    <span className="text-xs opacity-70"> + {sub.secondaryCategory}</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">${sub.monthlyCost.toFixed(2)}</TableCell>
                 <TableCell className="hidden md:table-cell">
                   <ROIProgress score={sub.roiScore} size="sm" />

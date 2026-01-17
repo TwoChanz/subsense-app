@@ -33,6 +33,7 @@ export default function AddSubscriptionPage() {
 
   const [name, setName] = useState("")
   const [category, setCategory] = useState("")
+  const [secondaryCategory, setSecondaryCategory] = useState<string | null>(null)
   const [monthlyCost, setMonthlyCost] = useState("")
   const [usageFrequency, setUsageFrequency] = useState<UsageFrequency | "">("")
   const [importance, setImportance] = useState<Importance | "">("")
@@ -50,6 +51,7 @@ export default function AddSubscriptionPage() {
           if (subscription) {
             setName(subscription.name)
             setCategory(subscription.category)
+            setSecondaryCategory(subscription.secondaryCategory ?? null)
             setMonthlyCost(subscription.monthlyCost.toString())
             setUsageFrequency(subscription.usageFrequency)
             setImportance(subscription.importance)
@@ -93,7 +95,7 @@ export default function AddSubscriptionPage() {
     return () => clearTimeout(timeoutId)
   }, [name, checkDuplicate])
 
-  // Calculate preview ROI (now category-aware)
+  // Calculate preview ROI (now category-aware with optional secondary category)
   const previewROI =
     usageFrequency && importance && monthlyCost && category
       ? calculateROIScore(
@@ -101,6 +103,7 @@ export default function AddSubscriptionPage() {
           importance as Importance,
           Number.parseFloat(monthlyCost) || 0,
           category,
+          secondaryCategory,
         )
       : null
 
@@ -120,6 +123,7 @@ export default function AddSubscriptionPage() {
         await apiUpdateSubscription(editId, {
           name: name.trim(),
           category,
+          secondaryCategory,
           monthlyCost: Number.parseFloat(monthlyCost),
           usageFrequency: usageFrequency as UsageFrequency,
           importance: importance as Importance,
@@ -131,6 +135,7 @@ export default function AddSubscriptionPage() {
         await createSubscription({
           name: name.trim(),
           category,
+          secondaryCategory,
           monthlyCost: Number.parseFloat(monthlyCost),
           usageFrequency: usageFrequency as UsageFrequency,
           importance: importance as Importance,
@@ -247,7 +252,13 @@ export default function AddSubscriptionPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Select value={category} onValueChange={setCategory}>
+                <Select value={category} onValueChange={(v) => {
+                  setCategory(v)
+                  // Clear secondary if it matches the new primary
+                  if (secondaryCategory === v) {
+                    setSecondaryCategory(null)
+                  }
+                }}>
                   <SelectTrigger id="category">
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
@@ -259,6 +270,31 @@ export default function AddSubscriptionPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secondaryCategory">
+                  Secondary Category <span className="text-muted-foreground text-xs">(optional)</span>
+                </Label>
+                <Select
+                  value={secondaryCategory ?? "none"}
+                  onValueChange={(v) => setSecondaryCategory(v === "none" ? null : v)}
+                >
+                  <SelectTrigger id="secondaryCategory">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {CATEGORIES.filter((cat) => cat !== category).map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  For subscriptions that serve multiple purposes (e.g., YouTube = Education + Entertainment)
+                </p>
               </div>
 
               <div className="space-y-2">

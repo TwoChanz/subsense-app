@@ -6,6 +6,7 @@ export interface Subscription {
   id: string
   name: string
   category: string
+  secondaryCategory?: string | null
   monthlyCost: number
   usageFrequency: UsageFrequency
   importance: Importance

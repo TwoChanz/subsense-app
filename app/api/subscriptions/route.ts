@@ -7,6 +7,7 @@ import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
 const createSubscriptionSchema = z.object({
   name: z.string().min(1).max(100),
   category: z.string().min(1).max(50),
+  secondaryCategory: z.string().max(50).optional().nullable(),
   monthlyCost: z.number().positive(),
   usageFrequency: z.enum(["daily", "weekly", "monthly", "rare"]),
   importance: z.enum(["low", "medium", "high"]),
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, category, monthlyCost, usageFrequency, importance } = validation.data
+    const { name, category, secondaryCategory, monthlyCost, usageFrequency, importance } = validation.data
 
     // Check for duplicate name
     const existing = await prisma.subscription.findFirst({
@@ -62,14 +63,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // Calculate ROI score and status (now category-aware)
-    const roiScore = calculateROIScore(usageFrequency, importance, monthlyCost, category)
+    // Calculate ROI score and status (category-aware with optional secondary category)
+    const roiScore = calculateROIScore(usageFrequency, importance, monthlyCost, category, secondaryCategory)
     const status = getStatusFromScore(roiScore)
 
     const subscription = await prisma.subscription.create({
       data: {
         name,
         category,
+        secondaryCategory,
         monthlyCost,
         usageFrequency,
         importance,

@@ -90,6 +90,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     subscription.importance as "low" | "medium" | "high",
     subscription.monthlyCost,
     subscription.category,
+    subscription.secondaryCategory,
   )
 
   const recommendation = getRecommendation(subscription.roiScore)
@@ -187,7 +188,9 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               <StatusBadge status={subscription.status} />
             </div>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              {subscription.category} • ${subscription.monthlyCost.toFixed(2)}/month
+              {subscription.category}
+              {subscription.secondaryCategory && ` + ${subscription.secondaryCategory}`}
+              {" • "}${subscription.monthlyCost.toFixed(2)}/month
             </p>
           </div>
         </div>
