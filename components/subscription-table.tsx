@@ -12,7 +12,8 @@ import { ROIProgress } from "@/components/roi-progress"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { EmptyState } from "@/components/empty-state"
 import type { Subscription } from "@/lib/types"
-import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Clock } from "lucide-react"
 import { ROITooltip } from "@/components/roi-tooltip"
 
 interface SubscriptionTableProps {
@@ -24,6 +25,16 @@ type SortField = "name" | "monthlyCost" | "roiScore" | "category"
 type SortDirection = "asc" | "desc"
 
 const ITEMS_PER_PAGE = 10
+
+// Calculate days remaining for trial subscriptions
+function getTrialDaysRemaining(trialEndDate: Date | null | undefined): number | null {
+  if (!trialEndDate) return null
+  const now = new Date()
+  const end = new Date(trialEndDate)
+  const diffTime = end.getTime() - now.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return diffDays
+}
 
 export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTableProps) {
   const [search, setSearch] = useState("")
@@ -176,7 +187,29 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
           <TableBody>
             {paginatedData.map((sub) => (
               <TableRow key={sub.id}>
-                <TableCell className="font-medium">{sub.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <span>{sub.name}</span>
+                    {sub.billingCycle === "trial" && (
+                      <>
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Trial
+                        </Badge>
+                        {(() => {
+                          const daysLeft = getTrialDaysRemaining(sub.trialEndDate)
+                          if (daysLeft === null) return null
+                          const isUrgent = daysLeft <= 7
+                          return (
+                            <span className={`text-xs ${isUrgent ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                              {daysLeft <= 0 ? "Expired" : `${daysLeft}d left`}
+                            </span>
+                          )
+                        })()}
+                      </>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="hidden sm:table-cell text-muted-foreground">
                   {sub.category}
                   {sub.secondaryCategory && (

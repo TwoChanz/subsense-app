@@ -8,9 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ROIProgress } from "@/components/roi-progress"
 import { StatusBadge } from "@/components/status-badge"
 import { ROITooltip } from "@/components/roi-tooltip"
+import { Badge } from "@/components/ui/badge"
 import { fetchSubscriptionById } from "@/lib/api"
-import { generateCategoryBreakdown, getRecommendation } from "@/lib/scoring"
-import type { Subscription } from "@/lib/types"
+import { generateCategoryBreakdown, getRecommendation, getAnnualizedCost } from "@/lib/scoring"
+import { BILLING_CYCLES, CANCELLATION_FRICTIONS, USAGE_SCOPES } from "@/lib/constants"
+import type { Subscription, BillingCycle, CancellationFriction, UsageScope } from "@/lib/types"
 import {
   ArrowLeft,
   Activity,
@@ -21,6 +23,10 @@ import {
   ArrowDownCircle,
   XCircle,
   Pencil,
+  Calendar,
+  Users,
+  AlertTriangle,
+  Bell,
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -171,6 +177,24 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const recConfig = recommendationConfig[recommendation]
   const RecIcon = recConfig.icon
 
+  // Get labels for new fields
+  const billingCycleLabel = BILLING_CYCLES.find(b => b.value === subscription.billingCycle)?.label || subscription.billingCycle
+  const cancellationFrictionLabel = CANCELLATION_FRICTIONS.find(f => f.value === subscription.cancellationFriction)?.label || subscription.cancellationFriction
+  const usageScopeLabel = USAGE_SCOPES.find(s => s.value === subscription.usageScope)?.label || subscription.usageScope
+
+  // Calculate annualized cost
+  const annualizedCost = getAnnualizedCost(subscription.monthlyCost, subscription.billingCycle as BillingCycle)
+
+  // Calculate trial days remaining
+  const getTrialDaysRemaining = (): number | null => {
+    if (!subscription.trialEndDate) return null
+    const now = new Date()
+    const end = new Date(subscription.trialEndDate)
+    const diffTime = end.getTime() - now.getTime()
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+  const trialDaysLeft = getTrialDaysRemaining()
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -186,6 +210,17 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{subscription.name}</h1>
               <StatusBadge status={subscription.status} />
+              {subscription.billingCycle === "trial" && (
+                <Badge variant="outline" className="text-xs">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Trial
+                  {trialDaysLeft !== null && (
+                    <span className={trialDaysLeft <= 7 ? "text-destructive ml-1" : "ml-1"}>
+                      ({trialDaysLeft <= 0 ? "Expired" : `${trialDaysLeft}d left`})
+                    </span>
+                  )}
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">
               {subscription.category}
@@ -223,6 +258,85 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
                 <span>Poor</span>
                 <span>Review</span>
                 <span>Excellent</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Subscription Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Subscription Details</CardTitle>
+          <CardDescription>Billing and usage information</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Billing Cycle */}
+            <div className="flex items-start gap-3">
+              <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Billing Cycle</p>
+                <p className="text-sm text-muted-foreground">{billingCycleLabel}</p>
+                {subscription.billingCycle !== "trial" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ${annualizedCost.toFixed(2)}/year
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Usage Scope */}
+            <div className="flex items-start gap-3">
+              <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Usage Scope</p>
+                <p className="text-sm text-muted-foreground">{usageScopeLabel}</p>
+              </div>
+            </div>
+
+            {/* Cancellation Friction */}
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Cancellation Friction</p>
+                <p className="text-sm text-muted-foreground">{cancellationFrictionLabel}</p>
+              </div>
+            </div>
+
+            {/* Renewal/Trial Info */}
+            <div className="flex items-start gap-3">
+              <Bell className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                {subscription.billingCycle === "trial" ? (
+                  <>
+                    <p className="text-sm font-medium">Trial Status</p>
+                    {trialDaysLeft !== null ? (
+                      <p className={`text-sm ${trialDaysLeft <= 7 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                        {trialDaysLeft <= 0 ? "Trial expired" : `${trialDaysLeft} days remaining`}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No end date set</p>
+                    )}
+                    {subscription.trialReminderEnabled && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Reminder set for {subscription.trialReminderDays}d before
+                      </p>
+                    )}
+                  </>
+                ) : subscription.renewalDate ? (
+                  <>
+                    <p className="text-sm font-medium">Next Renewal</p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(subscription.renewalDate).toLocaleDateString()}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium">Renewal Date</p>
+                    <p className="text-sm text-muted-foreground">Not set</p>
+                  </>
+                )}
               </div>
             </div>
           </div>
