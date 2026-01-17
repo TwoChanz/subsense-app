@@ -40,6 +40,17 @@ model Subscription {
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Billing cycle and renewal
+  billingCycle         String    @default("monthly")
+  renewalDate          DateTime?
+  // Cancellation and usage scope
+  cancellationFriction String    @default("moderate")
+  usageScope           String    @default("personal")
+  // Trial-specific fields
+  trialEndDate         DateTime?
+  trialReminderEnabled Boolean   @default(true)
+  trialReminderDays    Int       @default(3)
+
   @@unique([userId, name])
   @@index([userId])
 }
