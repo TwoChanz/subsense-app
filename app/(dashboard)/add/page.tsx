@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ROIProgress } from "@/components/roi-progress"
 import { StatusBadge } from "@/components/status-badge"
-import { addSubscription, getSubscriptionById, updateSubscription, isNameDuplicate } from "@/lib/store"
+import {
+  fetchSubscriptionById,
+  createSubscription,
+  updateSubscription as apiUpdateSubscription,
+  checkDuplicateName,
+} from "@/lib/api"
 import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
 import { CATEGORIES } from "@/lib/constants"
 import type { UsageFrequency, Importance } from "@/lib/types"
@@ -34,33 +39,59 @@ export default function AddSubscriptionPage() {
   const [notFound, setNotFound] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false)
 
   // Load existing data if editing
   useEffect(() => {
     if (editId) {
-      const subscription = getSubscriptionById(editId)
-      if (subscription) {
-        setName(subscription.name)
-        setCategory(subscription.category)
-        setMonthlyCost(subscription.monthlyCost.toString())
-        setUsageFrequency(subscription.usageFrequency)
-        setImportance(subscription.importance)
-        setNotFound(false)
-      } else {
-        setNotFound(true)
-      }
+      setIsLoadingEdit(true)
+      fetchSubscriptionById(editId)
+        .then((subscription) => {
+          if (subscription) {
+            setName(subscription.name)
+            setCategory(subscription.category)
+            setMonthlyCost(subscription.monthlyCost.toString())
+            setUsageFrequency(subscription.usageFrequency)
+            setImportance(subscription.importance)
+            setNotFound(false)
+          } else {
+            setNotFound(true)
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to load subscription:", error)
+          setNotFound(true)
+        })
+        .finally(() => {
+          setIsLoadingEdit(false)
+        })
     }
   }, [editId])
 
-  // Validate name for duplicates
+  // Debounced duplicate check
+  const checkDuplicate = useCallback(
+    async (nameToCheck: string) => {
+      if (!nameToCheck.trim()) {
+        setNameError(null)
+        return
+      }
+      try {
+        const isDuplicate = await checkDuplicateName(nameToCheck, editId || undefined)
+        setNameError(isDuplicate ? "A subscription with this name already exists" : null)
+      } catch (error) {
+        console.error("Failed to check duplicate:", error)
+      }
+    },
+    [editId]
+  )
+
+  // Validate name for duplicates with debounce
   useEffect(() => {
-    if (name.trim()) {
-      const isDuplicate = isNameDuplicate(name, editId || undefined)
-      setNameError(isDuplicate ? "A subscription with this name already exists" : null)
-    } else {
-      setNameError(null)
-    }
-  }, [name, editId])
+    const timeoutId = setTimeout(() => {
+      checkDuplicate(name)
+    }, 300)
+    return () => clearTimeout(timeoutId)
+  }, [name, checkDuplicate])
 
   // Calculate preview ROI
   const previewROI =
@@ -85,7 +116,7 @@ export default function AddSubscriptionPage() {
 
     try {
       if (isEditing && editId) {
-        updateSubscription(editId, {
+        await apiUpdateSubscription(editId, {
           name: name.trim(),
           category,
           monthlyCost: Number.parseFloat(monthlyCost),
@@ -96,7 +127,7 @@ export default function AddSubscriptionPage() {
           description: `${name} has been updated successfully.`,
         })
       } else {
-        addSubscription({
+        await createSubscription({
           name: name.trim(),
           category,
           monthlyCost: Number.parseFloat(monthlyCost),
@@ -109,12 +140,32 @@ export default function AddSubscriptionPage() {
       }
 
       router.push("/")
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again."
       toast.error("Something went wrong", {
-        description: "Please try again.",
+        description: message,
       })
       setIsSubmitting(false)
     }
+  }
+
+  // Show loading state while fetching edit data
+  if (isLoadingEdit) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-10 rounded bg-muted animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="h-96 rounded-lg bg-muted animate-pulse" />
+          <div className="h-96 rounded-lg bg-muted animate-pulse" />
+        </div>
+      </div>
+    )
   }
 
   // Show not found state if editing a non-existent subscription

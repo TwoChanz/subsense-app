@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { MetricCard } from "@/components/metric-card"
 import { SubscriptionTable } from "@/components/subscription-table"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getSubscriptions, calculateKPIs, deleteSubscription } from "@/lib/store"
+import { fetchSubscriptions, fetchKPIs, deleteSubscription as apiDeleteSubscription } from "@/lib/api"
 import { downloadSubscriptions } from "@/lib/export"
 import type { Subscription, KPIData } from "@/lib/types"
 import { DollarSign, Package, AlertTriangle, Lightbulb, Download, FileSpreadsheet, FileJson } from "lucide-react"
@@ -27,16 +27,43 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  useEffect(() => {
-    setSubscriptions(getSubscriptions())
-    setKpis(calculateKPIs())
-    setIsLoading(false)
+  const loadData = useCallback(async () => {
+    try {
+      const [subs, kpiData] = await Promise.all([
+        fetchSubscriptions(),
+        fetchKPIs(),
+      ])
+      setSubscriptions(subs)
+      setKpis(kpiData)
+    } catch (error) {
+      console.error("Failed to load data:", error)
+      toast.error("Failed to load data", {
+        description: "Please try refreshing the page.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
-  const handleDelete = (id: string) => {
-    deleteSubscription(id)
-    setSubscriptions(getSubscriptions())
-    setKpis(calculateKPIs())
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleDelete = async (id: string) => {
+    try {
+      await apiDeleteSubscription(id)
+      // Reload data after delete
+      const [subs, kpiData] = await Promise.all([
+        fetchSubscriptions(),
+        fetchKPIs(),
+      ])
+      setSubscriptions(subs)
+      setKpis(kpiData)
+      toast.success("Subscription deleted")
+    } catch (error) {
+      console.error("Failed to delete subscription:", error)
+      toast.error("Failed to delete subscription")
+    }
   }
 
   const handleExport = (format: "csv" | "json") => {

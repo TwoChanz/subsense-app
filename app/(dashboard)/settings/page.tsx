@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { resetSubscriptions } from "@/lib/store"
-import { getSettings, updateSetting } from "@/lib/settings"
+import { resetSubscriptions as apiResetSubscriptions, fetchSettings, updateSettings } from "@/lib/api"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { UpgradeModal } from "@/components/upgrade-modal"
 import { toast } from "sonner"
@@ -24,14 +23,27 @@ function SettingsContent() {
   const [notifications, setNotifications] = useState(true)
   const [emailReports, setEmailReports] = useState(false)
   const [emailAddress, setEmailAddress] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isResetting, setIsResetting] = useState(false)
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    const settings = getSettings()
-    setNotifications(settings.pushNotifications)
-    setEmailReports(settings.emailReports)
-    setEmailAddress(settings.emailAddress)
+  // Load settings from API on mount
+  const loadSettings = useCallback(async () => {
+    try {
+      const settings = await fetchSettings()
+      setNotifications(settings.pushNotifications)
+      setEmailReports(settings.emailReports)
+      setEmailAddress(settings.emailAddress)
+    } catch (error) {
+      console.error("Failed to load settings:", error)
+      toast.error("Failed to load settings")
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    loadSettings()
+  }, [loadSettings])
 
   // Handle Stripe redirect
   useEffect(() => {
@@ -52,35 +64,67 @@ function SettingsContent() {
     }
   }, [searchParams])
 
-  const handleNotificationsChange = (checked: boolean) => {
+  const handleNotificationsChange = async (checked: boolean) => {
     setNotifications(checked)
-    updateSetting("pushNotifications", checked)
-    toast.success(checked ? "Notifications enabled" : "Notifications disabled")
-  }
-
-  const handleEmailReportsChange = (checked: boolean) => {
-    setEmailReports(checked)
-    updateSetting("emailReports", checked)
-    if (checked) {
-      toast.success("Email reports enabled", {
-        description: "You'll receive weekly ROI summaries (coming soon)",
-      })
-    } else {
-      toast.success("Email reports disabled")
+    try {
+      await updateSettings({ pushNotifications: checked })
+      toast.success(checked ? "Notifications enabled" : "Notifications disabled")
+    } catch (error) {
+      console.error("Failed to update settings:", error)
+      setNotifications(!checked) // Revert on error
+      toast.error("Failed to update settings")
     }
   }
 
-  const handleEmailChange = (value: string) => {
-    setEmailAddress(value)
-    updateSetting("emailAddress", value)
+  const handleEmailReportsChange = async (checked: boolean) => {
+    setEmailReports(checked)
+    try {
+      await updateSettings({ emailReports: checked })
+      if (checked) {
+        toast.success("Email reports enabled", {
+          description: "You'll receive weekly ROI summaries (coming soon)",
+        })
+      } else {
+        toast.success("Email reports disabled")
+      }
+    } catch (error) {
+      console.error("Failed to update settings:", error)
+      setEmailReports(!checked) // Revert on error
+      toast.error("Failed to update settings")
+    }
   }
 
-  const handleReset = () => {
-    resetSubscriptions()
-    setResetDialogOpen(false)
-    toast.success("Data reset", {
-      description: "All subscriptions have been reset to default.",
-    })
+  const handleEmailChange = async (value: string) => {
+    setEmailAddress(value)
+    // Debounce the API call
+    const timeoutId = setTimeout(async () => {
+      try {
+        await updateSettings({ emailAddress: value })
+      } catch (error) {
+        console.error("Failed to update email:", error)
+      }
+    }, 500)
+    return () => clearTimeout(timeoutId)
+  }
+
+  const handleReset = async () => {
+    setIsResetting(true)
+    try {
+      await apiResetSubscriptions()
+      setResetDialogOpen(false)
+      toast.success("Data reset", {
+        description: "All subscriptions have been reset to default.",
+      })
+    } catch (error) {
+      console.error("Failed to reset data:", error)
+      toast.error("Failed to reset data")
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  if (isLoading) {
+    return <SettingsPageSkeleton />
   }
 
   return (
@@ -217,7 +261,7 @@ function SettingsContent() {
               <Label>Reset All Data</Label>
               <p className="text-sm text-muted-foreground">Clear all subscriptions and reset to default demo data</p>
             </div>
-            <Button variant="destructive" onClick={() => setResetDialogOpen(true)}>
+            <Button variant="destructive" onClick={() => setResetDialogOpen(true)} disabled={isResetting}>
               <RotateCcw className="h-4 w-4 mr-2" />
               Reset Data
             </Button>

@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { UserButton } from "@clerk/nextjs"
 import { Logo } from "@/components/logo"
 import { LayoutDashboard, PlusCircle, Settings, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -82,10 +83,21 @@ export function AppShell({ children }: AppShellProps) {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-sidebar-border p-4">
+        <div className="border-t border-sidebar-border p-4 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Theme</span>
             <ThemeToggle />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Account</span>
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: "h-8 w-8",
+                },
+              }}
+            />
           </div>
         </div>
       </aside>

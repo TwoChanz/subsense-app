@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState, use } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ROIProgress } from "@/components/roi-progress"
 import { StatusBadge } from "@/components/status-badge"
 import { ROITooltip } from "@/components/roi-tooltip"
-import { getSubscriptionById } from "@/lib/store"
+import { fetchSubscriptionById } from "@/lib/api"
 import { generateCategoryBreakdown, getRecommendation } from "@/lib/scoring"
 import type { Subscription } from "@/lib/types"
 import {
@@ -24,18 +24,25 @@ import {
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export default function ReportPage() {
-  const params = useParams()
+export default function ReportPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const router = useRouter()
-  const id = params.id as string
 
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const sub = getSubscriptionById(id)
-    setSubscription(sub ?? null)
-    setIsLoading(false)
+    fetchSubscriptionById(id)
+      .then((sub) => {
+        setSubscription(sub)
+      })
+      .catch((error) => {
+        console.error("Failed to load subscription:", error)
+        setSubscription(null)
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
   }, [id])
 
   if (isLoading) {

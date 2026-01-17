@@ -2,8 +2,10 @@ import type { Subscription, KPIData } from "./types"
 import { calculateROIScore, getStatusFromScore } from "./scoring"
 import { generateId } from "./constants"
 
-// Initial mock subscriptions
-const initialSubscriptions: Subscription[] = [
+const STORAGE_KEY = "subsense-subscriptions"
+
+// Initial demo subscriptions
+const demoSubscriptions: Subscription[] = [
   {
     id: "1",
     name: "Slack",
@@ -94,9 +96,58 @@ const initialSubscriptions: Subscription[] = [
   },
 ]
 
-let subscriptions: Subscription[] = [...initialSubscriptions]
+// Check if we're in a browser environment
+function isBrowser(): boolean {
+  return typeof window !== "undefined"
+}
+
+// Load subscriptions from localStorage
+function loadFromStorage(): Subscription[] | null {
+  if (!isBrowser()) return null
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return null
+
+    const parsed = JSON.parse(stored)
+    // Convert date strings back to Date objects
+    return parsed.map((sub: Subscription & { createdAt: string }) => ({
+      ...sub,
+      createdAt: new Date(sub.createdAt),
+    }))
+  } catch (error) {
+    console.error("Failed to load subscriptions from localStorage:", error)
+    return null
+  }
+}
+
+// Save subscriptions to localStorage
+function saveToStorage(subs: Subscription[]): void {
+  if (!isBrowser()) return
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(subs))
+  } catch (error) {
+    console.error("Failed to save subscriptions to localStorage:", error)
+  }
+}
+
+// Initialize subscriptions - load from storage or use demo data
+let subscriptions: Subscription[] = loadFromStorage() ?? [...demoSubscriptions]
+
+// If first load (no stored data), save demo data
+if (isBrowser() && !localStorage.getItem(STORAGE_KEY)) {
+  saveToStorage(subscriptions)
+}
 
 export function getSubscriptions(): Subscription[] {
+  // Re-check storage in case it was updated in another tab
+  if (isBrowser()) {
+    const stored = loadFromStorage()
+    if (stored) {
+      subscriptions = stored
+    }
+  }
   return [...subscriptions]
 }
 
@@ -124,6 +175,7 @@ export function addSubscription(data: Omit<Subscription, "id" | "roiScore" | "st
   }
 
   subscriptions = [...subscriptions, newSubscription]
+  saveToStorage(subscriptions)
   return newSubscription
 }
 
@@ -147,6 +199,7 @@ export function updateSubscription(
   }
 
   subscriptions = [...subscriptions.slice(0, index), updatedSubscription, ...subscriptions.slice(index + 1)]
+  saveToStorage(subscriptions)
 
   return updatedSubscription
 }
@@ -154,7 +207,12 @@ export function updateSubscription(
 export function deleteSubscription(id: string): boolean {
   const initialLength = subscriptions.length
   subscriptions = subscriptions.filter((sub) => sub.id !== id)
-  return subscriptions.length < initialLength
+
+  if (subscriptions.length < initialLength) {
+    saveToStorage(subscriptions)
+    return true
+  }
+  return false
 }
 
 export function calculateKPIs(): KPIData {
@@ -179,5 +237,14 @@ export function calculateKPIs(): KPIData {
 }
 
 export function resetSubscriptions(): void {
-  subscriptions = [...initialSubscriptions]
+  subscriptions = [...demoSubscriptions]
+  saveToStorage(subscriptions)
+}
+
+// Clear all data (for testing or complete reset)
+export function clearAllData(): void {
+  subscriptions = []
+  if (isBrowser()) {
+    localStorage.removeItem(STORAGE_KEY)
+  }
 }

@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { ClerkProvider, SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "sonner"
 import "./globals.css"
@@ -47,14 +48,40 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          {children}
-          <Toaster richColors position="bottom-right" />
-        </ThemeProvider>
-        <Analytics />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`font-sans antialiased`}>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+            <SignedOut>
+              <div className="flex min-h-screen items-center justify-center bg-background">
+                <div className="text-center space-y-6 p-8">
+                  <h1 className="text-4xl font-bold tracking-tight">Welcome to SubSense</h1>
+                  <p className="text-muted-foreground text-lg">
+                    Track and optimize your subscription ROI
+                  </p>
+                  <div className="flex gap-4 justify-center">
+                    <SignInButton mode="modal">
+                      <button className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90">
+                        Sign In
+                      </button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-6 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground">
+                        Sign Up
+                      </button>
+                    </SignUpButton>
+                  </div>
+                </div>
+              </div>
+            </SignedOut>
+            <SignedIn>
+              {children}
+            </SignedIn>
+            <Toaster richColors position="bottom-right" />
+          </ThemeProvider>
+          <Analytics />
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }
