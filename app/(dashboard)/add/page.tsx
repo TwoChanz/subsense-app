@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ROIProgress } from "@/components/roi-progress"
 import { StatusBadge } from "@/components/status-badge"
 import {
@@ -20,10 +21,11 @@ import {
 import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
 import { CATEGORIES, BILLING_CYCLES, CANCELLATION_FRICTIONS, USAGE_SCOPES, TRIAL_REMINDER_OPTIONS } from "@/lib/constants"
 import type { UsageFrequency, Importance, BillingCycle, CancellationFriction, UsageScope } from "@/lib/types"
-import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react"
+import { ArrowLeft, AlertCircle, Loader2, Plus, X, ChevronDown, Settings2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { ROITooltip } from "@/components/roi-tooltip"
+import { cn } from "@/lib/utils"
 
 export default function AddSubscriptionPage() {
   const router = useRouter()
@@ -37,7 +39,7 @@ export default function AddSubscriptionPage() {
   const [monthlyCost, setMonthlyCost] = useState("")
   const [usageFrequency, setUsageFrequency] = useState<UsageFrequency | "">("")
   const [importance, setImportance] = useState<Importance | "">("")
-  // New fields
+  // Additional options fields
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly")
   const [renewalDate, setRenewalDate] = useState<string>("")
   const [cancellationFriction, setCancellationFriction] = useState<CancellationFriction>("moderate")
@@ -46,6 +48,8 @@ export default function AddSubscriptionPage() {
   const [trialReminderEnabled, setTrialReminderEnabled] = useState(true)
   const [trialReminderDays, setTrialReminderDays] = useState(3)
   // UI state
+  const [showSecondaryCategory, setShowSecondaryCategory] = useState(false)
+  const [additionalOptionsOpen, setAdditionalOptionsOpen] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -61,10 +65,14 @@ export default function AddSubscriptionPage() {
             setName(subscription.name)
             setCategory(subscription.category)
             setSecondaryCategory(subscription.secondaryCategory ?? null)
+            // Show secondary category field if it has a value
+            if (subscription.secondaryCategory) {
+              setShowSecondaryCategory(true)
+            }
             setMonthlyCost(subscription.monthlyCost.toString())
             setUsageFrequency(subscription.usageFrequency)
             setImportance(subscription.importance)
-            // Load new fields
+            // Load additional options fields
             setBillingCycle(subscription.billingCycle)
             setRenewalDate(subscription.renewalDate ? subscription.renewalDate.toISOString().split("T")[0] : "")
             setCancellationFriction(subscription.cancellationFriction)
@@ -72,6 +80,15 @@ export default function AddSubscriptionPage() {
             setTrialEndDate(subscription.trialEndDate ? subscription.trialEndDate.toISOString().split("T")[0] : "")
             setTrialReminderEnabled(subscription.trialReminderEnabled)
             setTrialReminderDays(subscription.trialReminderDays)
+            // Expand additional options if any non-default values are set
+            const hasNonDefaultOptions =
+              subscription.billingCycle !== "monthly" ||
+              subscription.renewalDate ||
+              subscription.cancellationFriction !== "moderate" ||
+              subscription.usageScope !== "personal"
+            if (hasNonDefaultOptions) {
+              setAdditionalOptionsOpen(true)
+            }
             setNotFound(false)
           } else {
             setNotFound(true)
@@ -177,6 +194,42 @@ export default function AddSubscriptionPage() {
     }
   }
 
+  // Handle removing secondary category
+  const handleRemoveSecondaryCategory = () => {
+    setSecondaryCategory(null)
+    setShowSecondaryCategory(false)
+  }
+
+  // Generate summary text for collapsed additional options
+  const getAdditionalOptionsSummary = (): string | null => {
+    const parts: string[] = []
+
+    // Billing cycle (only show if not default)
+    if (billingCycle !== "monthly") {
+      const cycleLabel = BILLING_CYCLES.find((c) => c.value === billingCycle)?.label || billingCycle
+      parts.push(cycleLabel)
+    } else {
+      parts.push("Monthly")
+    }
+
+    // Renewal date
+    if (billingCycle === "trial" && trialEndDate) {
+      parts.push(`Ends ${new Date(trialEndDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`)
+    } else if (renewalDate) {
+      parts.push(`Renews ${new Date(renewalDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`)
+    }
+
+    // Cancellation friction
+    const frictionLabel = CANCELLATION_FRICTIONS.find((f) => f.value === cancellationFriction)?.label.split(" ")[0] || cancellationFriction
+    parts.push(frictionLabel)
+
+    // Usage scope
+    const scopeLabel = USAGE_SCOPES.find((s) => s.value === usageScope)?.label || usageScope
+    parts.push(scopeLabel)
+
+    return parts.join(" · ")
+  }
+
   // Show loading state while fetching edit data
   if (isLoadingEdit) {
     return (
@@ -255,6 +308,7 @@ export default function AddSubscriptionPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Name */}
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -272,6 +326,7 @@ export default function AddSubscriptionPage() {
                 )}
               </div>
 
+              {/* Category */}
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select value={category} onValueChange={(v) => {
@@ -294,31 +349,52 @@ export default function AddSubscriptionPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="secondaryCategory">
-                  Secondary Category <span className="text-muted-foreground text-xs">(optional)</span>
-                </Label>
-                <Select
-                  value={secondaryCategory ?? "none"}
-                  onValueChange={(v) => setSecondaryCategory(v === "none" ? null : v)}
+              {/* Secondary Category - Hidden by default */}
+              {!showSecondaryCategory ? (
+                <button
+                  type="button"
+                  onClick={() => setShowSecondaryCategory(true)}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <SelectTrigger id="secondaryCategory">
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {CATEGORIES.filter((cat) => cat !== category).map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  For subscriptions that serve multiple purposes (e.g., YouTube = Education + Entertainment)
-                </p>
-              </div>
+                  <Plus className="h-4 w-4" />
+                  Add secondary category
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="secondaryCategory">Secondary Category</Label>
+                    <button
+                      type="button"
+                      onClick={handleRemoveSecondaryCategory}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                      Remove
+                    </button>
+                  </div>
+                  <Select
+                    value={secondaryCategory ?? "none"}
+                    onValueChange={(v) => setSecondaryCategory(v === "none" ? null : v)}
+                  >
+                    <SelectTrigger id="secondaryCategory">
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {CATEGORIES.filter((cat) => cat !== category).map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    For subscriptions that serve multiple purposes (e.g., YouTube = Education + Entertainment)
+                  </p>
+                </div>
+              )}
 
+              {/* Monthly Cost */}
               <div className="space-y-2">
                 <Label htmlFor="cost">Monthly Cost ($)</Label>
                 <Input
@@ -332,6 +408,7 @@ export default function AddSubscriptionPage() {
                 />
               </div>
 
+              {/* Usage Frequency */}
               <div className="space-y-2">
                 <Label htmlFor="frequency">Usage Frequency</Label>
                 <Select value={usageFrequency} onValueChange={(v) => setUsageFrequency(v as UsageFrequency)}>
@@ -347,6 +424,7 @@ export default function AddSubscriptionPage() {
                 </Select>
               </div>
 
+              {/* Importance */}
               <div className="space-y-2">
                 <Label htmlFor="importance">Importance</Label>
                 <Select value={importance} onValueChange={(v) => setImportance(v as Importance)}>
@@ -361,125 +439,165 @@ export default function AddSubscriptionPage() {
                 </Select>
               </div>
 
-              {/* Billing Cycle */}
-              <div className="space-y-2">
-                <Label htmlFor="billingCycle">Billing Cycle</Label>
-                <Select value={billingCycle} onValueChange={(v) => setBillingCycle(v as BillingCycle)}>
-                  <SelectTrigger id="billingCycle">
-                    <SelectValue placeholder="Select billing cycle" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BILLING_CYCLES.map((cycle) => (
-                      <SelectItem key={cycle.value} value={cycle.value}>
-                        {cycle.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Renewal Date (shown when not trial) */}
-              {billingCycle !== "trial" && (
-                <div className="space-y-2">
-                  <Label htmlFor="renewalDate">
-                    Renewal Date <span className="text-muted-foreground text-xs">(optional)</span>
-                  </Label>
-                  <Input
-                    id="renewalDate"
-                    type="date"
-                    value={renewalDate}
-                    onChange={(e) => setRenewalDate(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {/* Trial-specific fields */}
-              {billingCycle === "trial" && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="trialEndDate">Trial Ends On</Label>
-                    <Input
-                      id="trialEndDate"
-                      type="date"
-                      value={trialEndDate}
-                      onChange={(e) => setTrialEndDate(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
+              {/* Additional Options - Collapsible */}
+              <Collapsible open={additionalOptionsOpen} onOpenChange={setAdditionalOptionsOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full py-3 px-3 -mx-3 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
                     <div className="flex items-center gap-2">
-                      <input
-                        id="trialReminder"
-                        type="checkbox"
-                        checked={trialReminderEnabled}
-                        onChange={(e) => setTrialReminderEnabled(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <Label htmlFor="trialReminder" className="font-normal">
-                        Remind me before trial ends
-                      </Label>
+                      <Settings2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Additional Options</span>
                     </div>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                        additionalOptionsOpen && "rotate-180"
+                      )}
+                    />
+                  </button>
+                </CollapsibleTrigger>
+
+                {/* Summary when collapsed */}
+                {!additionalOptionsOpen && (
+                  <p className="text-xs text-muted-foreground px-3 -mt-1 pb-2">
+                    {getAdditionalOptionsSummary()}
+                  </p>
+                )}
+
+                <CollapsibleContent className="space-y-4 pt-2">
+                  {/* Billing Cycle */}
+                  <div className="space-y-2">
+                    <Label htmlFor="billingCycle">Billing Cycle</Label>
+                    <Select value={billingCycle} onValueChange={(v) => setBillingCycle(v as BillingCycle)}>
+                      <SelectTrigger id="billingCycle">
+                        <SelectValue placeholder="Select billing cycle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BILLING_CYCLES.map((cycle) => (
+                          <SelectItem key={cycle.value} value={cycle.value}>
+                            {cycle.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  {trialReminderEnabled && (
+                  {/* Renewal Date / Trial End Date */}
+                  {billingCycle === "trial" ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="trialEndDate">
+                          Trial End Date
+                          {!trialEndDate && (
+                            <span className="text-amber-500 text-xs ml-2">Recommended to set a date</span>
+                          )}
+                        </Label>
+                        <Input
+                          id="trialEndDate"
+                          type="date"
+                          value={trialEndDate}
+                          onChange={(e) => setTrialEndDate(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          We'll remind you before your trial converts to paid
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="trialReminder"
+                            type="checkbox"
+                            checked={trialReminderEnabled}
+                            onChange={(e) => setTrialReminderEnabled(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <Label htmlFor="trialReminder" className="font-normal">
+                            Remind me before trial ends
+                          </Label>
+                        </div>
+                      </div>
+
+                      {trialReminderEnabled && (
+                        <div className="space-y-2">
+                          <Label htmlFor="trialReminderDays">Reminder Timing</Label>
+                          <Select
+                            value={trialReminderDays.toString()}
+                            onValueChange={(v) => setTrialReminderDays(Number(v))}
+                          >
+                            <SelectTrigger id="trialReminderDays">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TRIAL_REMINDER_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value.toString()}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </>
+                  ) : (
                     <div className="space-y-2">
-                      <Label htmlFor="trialReminderDays">Reminder Timing</Label>
-                      <Select
-                        value={trialReminderDays.toString()}
-                        onValueChange={(v) => setTrialReminderDays(Number(v))}
-                      >
-                        <SelectTrigger id="trialReminderDays">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TRIAL_REMINDER_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value.toString()}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="renewalDate">
+                        Renewal Date <span className="text-muted-foreground text-xs">(optional)</span>
+                      </Label>
+                      <Input
+                        id="renewalDate"
+                        type="date"
+                        value={renewalDate}
+                        onChange={(e) => setRenewalDate(e.target.value)}
+                      />
+                      {(billingCycle === "annual" || billingCycle === "quarterly") && (
+                        <p className="text-xs text-muted-foreground">
+                          Optional, but enables renewal reminders
+                        </p>
+                      )}
                     </div>
                   )}
-                </>
-              )}
 
-              {/* Cancellation Friction */}
-              <div className="space-y-2">
-                <Label htmlFor="cancellationFriction">Easy to Cancel?</Label>
-                <Select
-                  value={cancellationFriction}
-                  onValueChange={(v) => setCancellationFriction(v as CancellationFriction)}
-                >
-                  <SelectTrigger id="cancellationFriction">
-                    <SelectValue placeholder="How easy is it to cancel?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CANCELLATION_FRICTIONS.map((friction) => (
-                      <SelectItem key={friction.value} value={friction.value}>
-                        {friction.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  {/* Cancellation Friction */}
+                  <div className="space-y-2">
+                    <Label htmlFor="cancellationFriction">Easy to Cancel?</Label>
+                    <Select
+                      value={cancellationFriction}
+                      onValueChange={(v) => setCancellationFriction(v as CancellationFriction)}
+                    >
+                      <SelectTrigger id="cancellationFriction">
+                        <SelectValue placeholder="How easy is it to cancel?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CANCELLATION_FRICTIONS.map((friction) => (
+                          <SelectItem key={friction.value} value={friction.value}>
+                            {friction.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {/* Usage Scope */}
-              <div className="space-y-2">
-                <Label htmlFor="usageScope">Who Uses This?</Label>
-                <Select value={usageScope} onValueChange={(v) => setUsageScope(v as UsageScope)}>
-                  <SelectTrigger id="usageScope">
-                    <SelectValue placeholder="Who uses this subscription?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {USAGE_SCOPES.map((scope) => (
-                      <SelectItem key={scope.value} value={scope.value}>
-                        {scope.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  {/* Usage Scope */}
+                  <div className="space-y-2">
+                    <Label htmlFor="usageScope">Who Uses This?</Label>
+                    <Select value={usageScope} onValueChange={(v) => setUsageScope(v as UsageScope)}>
+                      <SelectTrigger id="usageScope">
+                        <SelectValue placeholder="Who uses this subscription?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {USAGE_SCOPES.map((scope) => (
+                          <SelectItem key={scope.value} value={scope.value}>
+                            {scope.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               <div className="flex gap-3 pt-4">
                 <Button type="submit" disabled={!isValid || isSubmitting} className="flex-1">
