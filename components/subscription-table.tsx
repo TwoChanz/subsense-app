@@ -13,12 +13,11 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { EmptyState } from "@/components/empty-state"
 import type { Subscription } from "@/lib/types"
 import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react"
-import { toast } from "sonner"
 import { ROITooltip } from "@/components/roi-tooltip"
 
 interface SubscriptionTableProps {
   subscriptions: Subscription[]
-  onDelete: (id: string) => void
+  onDelete: (id: string) => void | Promise<void>
 }
 
 type SortField = "name" | "monthlyCost" | "roiScore" | "category"
@@ -76,12 +75,9 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
     )
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId) {
-      onDelete(deleteId)
-      toast.success("Subscription deleted", {
-        description: "The subscription has been removed from your list.",
-      })
+      await onDelete(deleteId)
       setDeleteId(null)
     }
   }
