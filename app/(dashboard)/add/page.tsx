@@ -18,8 +18,8 @@ import {
   checkDuplicateName,
 } from "@/lib/api"
 import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
-import { CATEGORIES } from "@/lib/constants"
-import type { UsageFrequency, Importance } from "@/lib/types"
+import { CATEGORIES, BILLING_CYCLES, CANCELLATION_FRICTIONS, USAGE_SCOPES, TRIAL_REMINDER_OPTIONS } from "@/lib/constants"
+import type { UsageFrequency, Importance, BillingCycle, CancellationFriction, UsageScope } from "@/lib/types"
 import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -37,6 +37,15 @@ export default function AddSubscriptionPage() {
   const [monthlyCost, setMonthlyCost] = useState("")
   const [usageFrequency, setUsageFrequency] = useState<UsageFrequency | "">("")
   const [importance, setImportance] = useState<Importance | "">("")
+  // New fields
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly")
+  const [renewalDate, setRenewalDate] = useState<string>("")
+  const [cancellationFriction, setCancellationFriction] = useState<CancellationFriction>("moderate")
+  const [usageScope, setUsageScope] = useState<UsageScope>("personal")
+  const [trialEndDate, setTrialEndDate] = useState<string>("")
+  const [trialReminderEnabled, setTrialReminderEnabled] = useState(true)
+  const [trialReminderDays, setTrialReminderDays] = useState(3)
+  // UI state
   const [notFound, setNotFound] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -55,6 +64,14 @@ export default function AddSubscriptionPage() {
             setMonthlyCost(subscription.monthlyCost.toString())
             setUsageFrequency(subscription.usageFrequency)
             setImportance(subscription.importance)
+            // Load new fields
+            setBillingCycle(subscription.billingCycle)
+            setRenewalDate(subscription.renewalDate ? subscription.renewalDate.toISOString().split("T")[0] : "")
+            setCancellationFriction(subscription.cancellationFriction)
+            setUsageScope(subscription.usageScope)
+            setTrialEndDate(subscription.trialEndDate ? subscription.trialEndDate.toISOString().split("T")[0] : "")
+            setTrialReminderEnabled(subscription.trialReminderEnabled)
+            setTrialReminderDays(subscription.trialReminderDays)
             setNotFound(false)
           } else {
             setNotFound(true)
@@ -95,7 +112,7 @@ export default function AddSubscriptionPage() {
     return () => clearTimeout(timeoutId)
   }, [name, checkDuplicate])
 
-  // Calculate preview ROI (now category-aware with optional secondary category)
+  // Calculate preview ROI (with all scoring factors)
   const previewROI =
     usageFrequency && importance && monthlyCost && category
       ? calculateROIScore(
@@ -104,6 +121,9 @@ export default function AddSubscriptionPage() {
           Number.parseFloat(monthlyCost) || 0,
           category,
           secondaryCategory,
+          billingCycle,
+          usageScope,
+          cancellationFriction,
         )
       : null
 
@@ -119,27 +139,29 @@ export default function AddSubscriptionPage() {
     setIsSubmitting(true)
 
     try {
+      const payload = {
+        name: name.trim(),
+        category,
+        secondaryCategory,
+        monthlyCost: Number.parseFloat(monthlyCost),
+        usageFrequency: usageFrequency as UsageFrequency,
+        importance: importance as Importance,
+        billingCycle,
+        renewalDate: renewalDate ? new Date(renewalDate).toISOString() : null,
+        cancellationFriction,
+        usageScope,
+        trialEndDate: billingCycle === "trial" && trialEndDate ? new Date(trialEndDate).toISOString() : null,
+        trialReminderEnabled: billingCycle === "trial" ? trialReminderEnabled : true,
+        trialReminderDays: billingCycle === "trial" ? trialReminderDays : 3,
+      }
+
       if (isEditing && editId) {
-        await apiUpdateSubscription(editId, {
-          name: name.trim(),
-          category,
-          secondaryCategory,
-          monthlyCost: Number.parseFloat(monthlyCost),
-          usageFrequency: usageFrequency as UsageFrequency,
-          importance: importance as Importance,
-        })
+        await apiUpdateSubscription(editId, payload)
         toast.success("Subscription updated", {
           description: `${name} has been updated successfully.`,
         })
       } else {
-        await createSubscription({
-          name: name.trim(),
-          category,
-          secondaryCategory,
-          monthlyCost: Number.parseFloat(monthlyCost),
-          usageFrequency: usageFrequency as UsageFrequency,
-          importance: importance as Importance,
-        })
+        await createSubscription(payload)
         toast.success("Subscription added", {
           description: `${name} has been added to your list.`,
         })
@@ -335,6 +357,126 @@ export default function AddSubscriptionPage() {
                     <SelectItem value="high">High - Essential for work</SelectItem>
                     <SelectItem value="medium">Medium - Useful but not critical</SelectItem>
                     <SelectItem value="low">Low - Nice to have</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Billing Cycle */}
+              <div className="space-y-2">
+                <Label htmlFor="billingCycle">Billing Cycle</Label>
+                <Select value={billingCycle} onValueChange={(v) => setBillingCycle(v as BillingCycle)}>
+                  <SelectTrigger id="billingCycle">
+                    <SelectValue placeholder="Select billing cycle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BILLING_CYCLES.map((cycle) => (
+                      <SelectItem key={cycle.value} value={cycle.value}>
+                        {cycle.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Renewal Date (shown when not trial) */}
+              {billingCycle !== "trial" && (
+                <div className="space-y-2">
+                  <Label htmlFor="renewalDate">
+                    Renewal Date <span className="text-muted-foreground text-xs">(optional)</span>
+                  </Label>
+                  <Input
+                    id="renewalDate"
+                    type="date"
+                    value={renewalDate}
+                    onChange={(e) => setRenewalDate(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {/* Trial-specific fields */}
+              {billingCycle === "trial" && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="trialEndDate">Trial Ends On</Label>
+                    <Input
+                      id="trialEndDate"
+                      type="date"
+                      value={trialEndDate}
+                      onChange={(e) => setTrialEndDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="trialReminder"
+                        type="checkbox"
+                        checked={trialReminderEnabled}
+                        onChange={(e) => setTrialReminderEnabled(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="trialReminder" className="font-normal">
+                        Remind me before trial ends
+                      </Label>
+                    </div>
+                  </div>
+
+                  {trialReminderEnabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="trialReminderDays">Reminder Timing</Label>
+                      <Select
+                        value={trialReminderDays.toString()}
+                        onValueChange={(v) => setTrialReminderDays(Number(v))}
+                      >
+                        <SelectTrigger id="trialReminderDays">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TRIAL_REMINDER_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value.toString()}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Cancellation Friction */}
+              <div className="space-y-2">
+                <Label htmlFor="cancellationFriction">Easy to Cancel?</Label>
+                <Select
+                  value={cancellationFriction}
+                  onValueChange={(v) => setCancellationFriction(v as CancellationFriction)}
+                >
+                  <SelectTrigger id="cancellationFriction">
+                    <SelectValue placeholder="How easy is it to cancel?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CANCELLATION_FRICTIONS.map((friction) => (
+                      <SelectItem key={friction.value} value={friction.value}>
+                        {friction.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Usage Scope */}
+              <div className="space-y-2">
+                <Label htmlFor="usageScope">Who Uses This?</Label>
+                <Select value={usageScope} onValueChange={(v) => setUsageScope(v as UsageScope)}>
+                  <SelectTrigger id="usageScope">
+                    <SelectValue placeholder="Who uses this subscription?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {USAGE_SCOPES.map((scope) => (
+                      <SelectItem key={scope.value} value={scope.value}>
+                        {scope.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
