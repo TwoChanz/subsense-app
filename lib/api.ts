@@ -7,17 +7,23 @@ interface ApiResponse<T> {
 }
 
 // Subscriptions API
+// Helper to convert date strings from API to Date objects
+function convertSubscriptionDates(sub: Record<string, unknown>): Subscription {
+  return {
+    ...sub,
+    createdAt: new Date(sub.createdAt as string),
+    renewalDate: sub.renewalDate ? new Date(sub.renewalDate as string) : null,
+    trialEndDate: sub.trialEndDate ? new Date(sub.trialEndDate as string) : null,
+  } as Subscription
+}
+
 export async function fetchSubscriptions(): Promise<Subscription[]> {
   const res = await fetch("/api/subscriptions")
   if (!res.ok) {
     throw new Error("Failed to fetch subscriptions")
   }
   const data = await res.json()
-  // Convert date strings to Date objects
-  return data.map((sub: Subscription & { createdAt: string }) => ({
-    ...sub,
-    createdAt: new Date(sub.createdAt),
-  }))
+  return data.map(convertSubscriptionDates)
 }
 
 export async function fetchSubscriptionById(id: string): Promise<Subscription | null> {
@@ -29,10 +35,7 @@ export async function fetchSubscriptionById(id: string): Promise<Subscription | 
     throw new Error("Failed to fetch subscription")
   }
   const data = await res.json()
-  return {
-    ...data,
-    createdAt: new Date(data.createdAt),
-  }
+  return convertSubscriptionDates(data)
 }
 
 export async function createSubscription(data: {
@@ -42,6 +45,14 @@ export async function createSubscription(data: {
   monthlyCost: number
   usageFrequency: string
   importance: string
+  // New fields
+  billingCycle?: string
+  renewalDate?: string | null
+  cancellationFriction?: string
+  usageScope?: string
+  trialEndDate?: string | null
+  trialReminderEnabled?: boolean
+  trialReminderDays?: number
 }): Promise<Subscription> {
   const res = await fetch("/api/subscriptions", {
     method: "POST",
@@ -53,10 +64,7 @@ export async function createSubscription(data: {
     throw new Error(error.error || "Failed to create subscription")
   }
   const result = await res.json()
-  return {
-    ...result,
-    createdAt: new Date(result.createdAt),
-  }
+  return convertSubscriptionDates(result)
 }
 
 export async function updateSubscription(
@@ -68,6 +76,14 @@ export async function updateSubscription(
     monthlyCost?: number
     usageFrequency?: string
     importance?: string
+    // New fields
+    billingCycle?: string
+    renewalDate?: string | null
+    cancellationFriction?: string
+    usageScope?: string
+    trialEndDate?: string | null
+    trialReminderEnabled?: boolean
+    trialReminderDays?: number
   }
 ): Promise<Subscription> {
   const res = await fetch(`/api/subscriptions/${id}`, {
@@ -80,10 +96,7 @@ export async function updateSubscription(
     throw new Error(error.error || "Failed to update subscription")
   }
   const result = await res.json()
-  return {
-    ...result,
-    createdAt: new Date(result.createdAt),
-  }
+  return convertSubscriptionDates(result)
 }
 
 export async function deleteSubscription(id: string): Promise<void> {

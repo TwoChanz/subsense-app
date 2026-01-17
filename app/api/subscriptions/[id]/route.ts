@@ -11,6 +11,14 @@ const updateSubscriptionSchema = z.object({
   monthlyCost: z.number().positive().optional(),
   usageFrequency: z.enum(["daily", "weekly", "monthly", "rare"]).optional(),
   importance: z.enum(["low", "medium", "high"]).optional(),
+  // New fields
+  billingCycle: z.enum(["monthly", "annual", "quarterly", "trial"]).optional(),
+  renewalDate: z.string().datetime().optional().nullable(),
+  cancellationFriction: z.enum(["easy", "moderate", "painful"]).optional(),
+  usageScope: z.enum(["personal", "team", "family"]).optional(),
+  trialEndDate: z.string().datetime().optional().nullable(),
+  trialReminderEnabled: z.boolean().optional(),
+  trialReminderDays: z.number().min(1).max(30).optional(),
 })
 
 export async function GET(
@@ -72,7 +80,21 @@ export async function PATCH(
       return NextResponse.json({ error: "Subscription not found" }, { status: 404 })
     }
 
-    const { name, category, secondaryCategory, monthlyCost, usageFrequency, importance } = validation.data
+    const {
+      name,
+      category,
+      secondaryCategory,
+      monthlyCost,
+      usageFrequency,
+      importance,
+      billingCycle,
+      renewalDate,
+      cancellationFriction,
+      usageScope,
+      trialEndDate,
+      trialReminderEnabled,
+      trialReminderDays,
+    } = validation.data
 
     // Check for duplicate name if name is being updated
     if (name && name.toLowerCase() !== existing.name.toLowerCase()) {
@@ -92,7 +114,7 @@ export async function PATCH(
       }
     }
 
-    // Calculate new ROI score if any relevant fields changed (category-aware with secondary)
+    // Calculate new ROI score with all parameters
     const updatedUsageFrequency = usageFrequency ?? existing.usageFrequency
     const updatedImportance = importance ?? existing.importance
     const updatedMonthlyCost = monthlyCost ?? existing.monthlyCost
@@ -101,13 +123,19 @@ export async function PATCH(
     const updatedSecondaryCategory = secondaryCategory === undefined
       ? existing.secondaryCategory
       : secondaryCategory
+    const updatedBillingCycle = billingCycle ?? existing.billingCycle
+    const updatedUsageScope = usageScope ?? existing.usageScope
+    const updatedCancellationFriction = cancellationFriction ?? existing.cancellationFriction
 
     const roiScore = calculateROIScore(
       updatedUsageFrequency as "daily" | "weekly" | "monthly" | "rare",
       updatedImportance as "low" | "medium" | "high",
       updatedMonthlyCost,
       updatedCategory,
-      updatedSecondaryCategory
+      updatedSecondaryCategory,
+      updatedBillingCycle as "monthly" | "annual" | "quarterly" | "trial",
+      updatedUsageScope as "personal" | "team" | "family",
+      updatedCancellationFriction as "easy" | "moderate" | "painful"
     )
     const status = getStatusFromScore(roiScore)
 
@@ -120,6 +148,13 @@ export async function PATCH(
         ...(monthlyCost !== undefined && { monthlyCost }),
         ...(usageFrequency && { usageFrequency }),
         ...(importance && { importance }),
+        ...(billingCycle && { billingCycle }),
+        ...(renewalDate !== undefined && { renewalDate: renewalDate ? new Date(renewalDate) : null }),
+        ...(cancellationFriction && { cancellationFriction }),
+        ...(usageScope && { usageScope }),
+        ...(trialEndDate !== undefined && { trialEndDate: trialEndDate ? new Date(trialEndDate) : null }),
+        ...(trialReminderEnabled !== undefined && { trialReminderEnabled }),
+        ...(trialReminderDays !== undefined && { trialReminderDays }),
         roiScore,
         status,
       },

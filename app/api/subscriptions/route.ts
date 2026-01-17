@@ -11,6 +11,14 @@ const createSubscriptionSchema = z.object({
   monthlyCost: z.number().positive(),
   usageFrequency: z.enum(["daily", "weekly", "monthly", "rare"]),
   importance: z.enum(["low", "medium", "high"]),
+  // New fields
+  billingCycle: z.enum(["monthly", "annual", "quarterly", "trial"]).default("monthly"),
+  renewalDate: z.string().datetime().optional().nullable(),
+  cancellationFriction: z.enum(["easy", "moderate", "painful"]).default("moderate"),
+  usageScope: z.enum(["personal", "team", "family"]).default("personal"),
+  trialEndDate: z.string().datetime().optional().nullable(),
+  trialReminderEnabled: z.boolean().default(true),
+  trialReminderDays: z.number().min(1).max(30).default(3),
 })
 
 export async function GET() {
@@ -46,7 +54,21 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, category, secondaryCategory, monthlyCost, usageFrequency, importance } = validation.data
+    const {
+      name,
+      category,
+      secondaryCategory,
+      monthlyCost,
+      usageFrequency,
+      importance,
+      billingCycle,
+      renewalDate,
+      cancellationFriction,
+      usageScope,
+      trialEndDate,
+      trialReminderEnabled,
+      trialReminderDays,
+    } = validation.data
 
     // Check for duplicate name
     const existing = await prisma.subscription.findFirst({
@@ -63,8 +85,17 @@ export async function POST(request: Request) {
       )
     }
 
-    // Calculate ROI score and status (category-aware with optional secondary category)
-    const roiScore = calculateROIScore(usageFrequency, importance, monthlyCost, category, secondaryCategory)
+    // Calculate ROI score and status (with billing cycle, usage scope, and friction)
+    const roiScore = calculateROIScore(
+      usageFrequency,
+      importance,
+      monthlyCost,
+      category,
+      secondaryCategory,
+      billingCycle,
+      usageScope,
+      cancellationFriction
+    )
     const status = getStatusFromScore(roiScore)
 
     const subscription = await prisma.subscription.create({
@@ -78,6 +109,13 @@ export async function POST(request: Request) {
         roiScore,
         status,
         userId: user.id,
+        billingCycle,
+        renewalDate: renewalDate ? new Date(renewalDate) : null,
+        cancellationFriction,
+        usageScope,
+        trialEndDate: trialEndDate ? new Date(trialEndDate) : null,
+        trialReminderEnabled,
+        trialReminderDays,
       },
     })
 
