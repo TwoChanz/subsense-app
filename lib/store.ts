@@ -4,7 +4,7 @@ import { generateId } from "./constants"
 
 const STORAGE_KEY = "subsense-subscriptions"
 
-// Initial demo subscriptions
+// Initial demo subscriptions with new billing/friction/scope fields
 const demoSubscriptions: Subscription[] = [
   {
     id: "1",
@@ -16,6 +16,11 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 88,
     status: "good",
     createdAt: new Date("2024-01-15"),
+    billingCycle: "monthly",
+    cancellationFriction: "easy",
+    usageScope: "team",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
   {
     id: "2",
@@ -27,6 +32,11 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 92,
     status: "good",
     createdAt: new Date("2024-02-01"),
+    billingCycle: "monthly",
+    cancellationFriction: "easy",
+    usageScope: "personal",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
   {
     id: "3",
@@ -38,6 +48,11 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 58,
     status: "review",
     createdAt: new Date("2024-03-10"),
+    billingCycle: "monthly",
+    cancellationFriction: "easy",
+    usageScope: "personal",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
   {
     id: "4",
@@ -49,6 +64,12 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 22,
     status: "cut",
     createdAt: new Date("2023-11-20"),
+    billingCycle: "annual",
+    renewalDate: new Date("2024-11-20"),
+    cancellationFriction: "painful",
+    usageScope: "personal",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
   {
     id: "5",
@@ -60,6 +81,11 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 72,
     status: "review",
     createdAt: new Date("2024-01-05"),
+    billingCycle: "monthly",
+    cancellationFriction: "moderate",
+    usageScope: "team",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
   {
     id: "6",
@@ -71,6 +97,11 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 78,
     status: "good",
     createdAt: new Date("2024-02-15"),
+    billingCycle: "monthly",
+    cancellationFriction: "easy",
+    usageScope: "personal",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
   {
     id: "7",
@@ -82,6 +113,12 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 95,
     status: "good",
     createdAt: new Date("2023-09-01"),
+    billingCycle: "annual",
+    renewalDate: new Date("2024-09-01"),
+    cancellationFriction: "moderate",
+    usageScope: "family",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
   {
     id: "8",
@@ -93,6 +130,12 @@ const demoSubscriptions: Subscription[] = [
     roiScore: 18,
     status: "cut",
     createdAt: new Date("2024-04-01"),
+    billingCycle: "annual",
+    renewalDate: new Date("2025-04-01"),
+    cancellationFriction: "easy",
+    usageScope: "personal",
+    trialReminderEnabled: true,
+    trialReminderDays: 3,
   },
 ]
 
@@ -163,7 +206,16 @@ export function isNameDuplicate(name: string, excludeId?: string): boolean {
 }
 
 export function addSubscription(data: Omit<Subscription, "id" | "roiScore" | "status" | "createdAt">): Subscription {
-  const roiScore = calculateROIScore(data.usageFrequency, data.importance, data.monthlyCost, data.category, data.secondaryCategory)
+  const roiScore = calculateROIScore(
+    data.usageFrequency,
+    data.importance,
+    data.monthlyCost,
+    data.category,
+    data.secondaryCategory,
+    data.billingCycle,
+    data.usageScope,
+    data.cancellationFriction
+  )
   const status = getStatusFromScore(roiScore)
 
   const newSubscription: Subscription = {
@@ -189,7 +241,16 @@ export function updateSubscription(
   const existing = subscriptions[index]
   const updated = { ...existing, ...data }
 
-  const roiScore = calculateROIScore(updated.usageFrequency, updated.importance, updated.monthlyCost, updated.category, updated.secondaryCategory)
+  const roiScore = calculateROIScore(
+    updated.usageFrequency,
+    updated.importance,
+    updated.monthlyCost,
+    updated.category,
+    updated.secondaryCategory,
+    updated.billingCycle,
+    updated.usageScope,
+    updated.cancellationFriction
+  )
   const status = getStatusFromScore(roiScore)
 
   const updatedSubscription: Subscription = {

@@ -1,4 +1,5 @@
-import type { UsageFrequency, Importance, SubscriptionStatus } from "./types"
+import type { UsageFrequency, Importance, SubscriptionStatus, BillingCycle, CancellationFriction, UsageScope } from "./types"
+import { CANCELLATION_FRICTION_SCORES, USAGE_SCOPE_USERS } from "./constants"
 
 /**
  * Category value multipliers - productivity/work tools have higher intrinsic value
@@ -83,6 +84,65 @@ const IMPORTANCE_MULTIPLIERS: Record<Importance, number> = {
 }
 
 /**
+ * Normalize cost to monthly equivalent based on billing cycle
+ * Trials are treated as $0 cost since they haven't committed money yet
+ */
+export function normalizeToMonthlyCost(cost: number, billingCycle: BillingCycle): number {
+  switch (billingCycle) {
+    case "annual":
+      return cost / 12
+    case "quarterly":
+      return cost / 3
+    case "trial":
+      return 0 // Trials don't count toward cost scoring
+    default:
+      return cost
+  }
+}
+
+/**
+ * Adjust cost per user based on usage scope
+ * Shared subscriptions have lower effective cost per person
+ */
+export function adjustForUsageScope(monthlyCost: number, usageScope: UsageScope): number {
+  const users = USAGE_SCOPE_USERS[usageScope]
+  return monthlyCost / users
+}
+
+/**
+ * Calculate trial urgency multiplier based on days until trial ends
+ * Higher urgency = score gets modified to flag action needed
+ */
+export function calculateTrialUrgency(trialEndDate: Date | null | undefined): number {
+  if (!trialEndDate) return 1.0
+  const now = new Date()
+  const daysUntilEnd = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (daysUntilEnd <= 0) return 2.0    // Expired - highest urgency
+  if (daysUntilEnd <= 3) return 1.5    // Very urgent
+  if (daysUntilEnd <= 7) return 1.3    // Urgent
+  return 1.0                            // Normal
+}
+
+/**
+ * Get annualized cost for display purposes
+ */
+export function getAnnualizedCost(cost: number, billingCycle: BillingCycle): number {
+  switch (billingCycle) {
+    case "annual":
+      return cost
+    case "quarterly":
+      return cost * 4
+    case "monthly":
+      return cost * 12
+    case "trial":
+      return 0
+    default:
+      return cost * 12
+  }
+}
+
+/**
  * Get blended category values when a secondary category is present
  */
 function getBlendedCategoryValues(
@@ -136,24 +196,48 @@ function getBlendedCategoryValues(
  * - Replacement Risk (15%): How difficult/risky it would be to replace
  * - Cancellation Friction (10%): How much disruption canceling would cause
  *
- * Supports optional secondary category for multi-purpose subscriptions (e.g., YouTube = Education + Entertainment)
- * When secondary category is provided, values are blended 70% primary / 30% secondary
+ * Supports:
+ * - Secondary category for multi-purpose subscriptions (70/30 blend)
+ * - Billing cycle normalization (annual/quarterly → monthly equivalent)
+ * - Usage scope cost adjustment (team/family cost sharing)
+ * - User-provided cancellation friction override
+ * - Trial subscription special handling
  */
 export function calculateROIScore(
   usageFrequency: UsageFrequency,
   importance: Importance,
-  monthlyCost: number,
+  rawCost: number,
   category: string = "Other",
-  secondaryCategory?: string | null
+  secondaryCategory?: string | null,
+  billingCycle: BillingCycle = "monthly",
+  usageScope: UsageScope = "personal",
+  userCancellationFriction?: CancellationFriction
 ): number {
-  const breakdown = generateCategoryBreakdown(usageFrequency, importance, monthlyCost, category, secondaryCategory)
+  // Normalize cost to monthly equivalent and adjust for usage scope
+  const normalizedCost = normalizeToMonthlyCost(rawCost, billingCycle)
+  const effectiveCost = adjustForUsageScope(normalizedCost, usageScope)
+
+  const breakdown = generateCategoryBreakdown(
+    usageFrequency,
+    importance,
+    effectiveCost,
+    category,
+    secondaryCategory,
+    userCancellationFriction
+  )
 
   // Weighted combination of sub-scores
-  const roi =
+  let roi =
     (breakdown.usageValue * 0.40) +
     (breakdown.costEfficiency * 0.35) +
     (breakdown.replacementRisk * 0.15) +
     (breakdown.cancellationFriction * 0.10)
+
+  // Trial subscriptions get a reduced base score
+  // They haven't proven their value yet, so we're more conservative
+  if (billingCycle === "trial") {
+    roi = roi * 0.75
+  }
 
   return Math.max(0, Math.min(100, Math.round(roi)))
 }
@@ -179,14 +263,17 @@ export function getStatusFromScore(score: number): SubscriptionStatus {
  * Generate detailed breakdown of ROI factors
  * Each sub-score is 0-100 and has real meaning
  *
- * Supports optional secondary category for blended scoring
+ * Supports:
+ * - Optional secondary category for blended scoring
+ * - User-provided cancellation friction override
  */
 export function generateCategoryBreakdown(
   usageFrequency: UsageFrequency,
   importance: Importance,
   monthlyCost: number,
   category: string = "Other",
-  secondaryCategory?: string | null
+  secondaryCategory?: string | null,
+  userCancellationFriction?: CancellationFriction
 ): {
   usageValue: number
   costEfficiency: number
@@ -232,11 +319,18 @@ export function generateCategoryBreakdown(
 
   // 4. CANCELLATION FRICTION (0-100)
   // How much disruption would canceling cause?
-  // Factors: importance (how much you'd miss it), usage (habit strength)
-  const importanceComponent = importanceMultiplier * 55
-  const usageComponent = (usageBase / 100) * 45
-  const rawFriction = importanceComponent + usageComponent
-  const cancellationFriction = Math.min(100, Math.round(rawFriction))
+  // If user provided their assessment, use that; otherwise calculate
+  let cancellationFriction: number
+  if (userCancellationFriction) {
+    // User-provided friction (easy=20, moderate=60, painful=100)
+    cancellationFriction = CANCELLATION_FRICTION_SCORES[userCancellationFriction]
+  } else {
+    // Calculate based on importance and usage
+    const importanceComponent = importanceMultiplier * 55
+    const usageComponent = (usageBase / 100) * 45
+    const rawFriction = importanceComponent + usageComponent
+    cancellationFriction = Math.min(100, Math.round(rawFriction))
+  }
 
   return {
     usageValue,
