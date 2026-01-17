@@ -15,9 +15,10 @@ import { addSubscription, getSubscriptionById, updateSubscription, isNameDuplica
 import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
 import { CATEGORIES } from "@/lib/constants"
 import type { UsageFrequency, Importance } from "@/lib/types"
-import { ArrowLeft, AlertCircle } from "lucide-react"
+import { ArrowLeft, AlertCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { ROITooltip } from "@/components/roi-tooltip"
 
 export default function AddSubscriptionPage() {
   const router = useRouter()
@@ -32,6 +33,7 @@ export default function AddSubscriptionPage() {
   const [importance, setImportance] = useState<Importance | "">("")
   const [notFound, setNotFound] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Load existing data if editing
   useEffect(() => {
@@ -75,35 +77,44 @@ export default function AddSubscriptionPage() {
   const isValid =
     name.trim() && !nameError && category && monthlyCost && Number.parseFloat(monthlyCost) > 0 && usageFrequency && importance
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isValid) return
+    if (!isValid || isSubmitting) return
 
-    if (isEditing && editId) {
-      updateSubscription(editId, {
-        name: name.trim(),
-        category,
-        monthlyCost: Number.parseFloat(monthlyCost),
-        usageFrequency: usageFrequency as UsageFrequency,
-        importance: importance as Importance,
+    setIsSubmitting(true)
+
+    try {
+      if (isEditing && editId) {
+        updateSubscription(editId, {
+          name: name.trim(),
+          category,
+          monthlyCost: Number.parseFloat(monthlyCost),
+          usageFrequency: usageFrequency as UsageFrequency,
+          importance: importance as Importance,
+        })
+        toast.success("Subscription updated", {
+          description: `${name} has been updated successfully.`,
+        })
+      } else {
+        addSubscription({
+          name: name.trim(),
+          category,
+          monthlyCost: Number.parseFloat(monthlyCost),
+          usageFrequency: usageFrequency as UsageFrequency,
+          importance: importance as Importance,
+        })
+        toast.success("Subscription added", {
+          description: `${name} has been added to your list.`,
+        })
+      }
+
+      router.push("/")
+    } catch {
+      toast.error("Something went wrong", {
+        description: "Please try again.",
       })
-      toast.success("Subscription updated", {
-        description: `${name} has been updated successfully.`,
-      })
-    } else {
-      addSubscription({
-        name: name.trim(),
-        category,
-        monthlyCost: Number.parseFloat(monthlyCost),
-        usageFrequency: usageFrequency as UsageFrequency,
-        importance: importance as Importance,
-      })
-      toast.success("Subscription added", {
-        description: `${name} has been added to your list.`,
-      })
+      setIsSubmitting(false)
     }
-
-    router.push("/")
   }
 
   // Show not found state if editing a non-existent subscription
@@ -241,10 +252,17 @@ export default function AddSubscriptionPage() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button type="submit" disabled={!isValid} className="flex-1">
-                  {isEditing ? "Update Subscription" : "Add Subscription"}
+                <Button type="submit" disabled={!isValid || isSubmitting} className="flex-1">
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isEditing ? "Updating..." : "Adding..."}
+                    </>
+                  ) : (
+                    isEditing ? "Update Subscription" : "Add Subscription"
+                  )}
                 </Button>
-                <Button type="button" variant="outline" asChild>
+                <Button type="button" variant="outline" asChild disabled={isSubmitting}>
                   <Link href="/">Cancel</Link>
                 </Button>
               </div>
@@ -255,7 +273,10 @@ export default function AddSubscriptionPage() {
         {/* Preview */}
         <Card>
           <CardHeader>
-            <CardTitle>ROI Preview</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              ROI Preview
+              <ROITooltip />
+            </CardTitle>
             <CardDescription>See how your subscription will be scored</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

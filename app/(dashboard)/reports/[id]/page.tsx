@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ROIProgress } from "@/components/roi-progress"
 import { StatusBadge } from "@/components/status-badge"
+import { ROITooltip } from "@/components/roi-tooltip"
 import { getSubscriptionById } from "@/lib/store"
 import { generateCategoryBreakdown, getRecommendation } from "@/lib/scoring"
 import type { Subscription } from "@/lib/types"
@@ -32,13 +33,9 @@ export default function ReportPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const sub = getSubscriptionById(id)
-      setSubscription(sub ?? null)
-      setIsLoading(false)
-    }, 300)
-
-    return () => clearTimeout(timer)
+    const sub = getSubscriptionById(id)
+    setSubscription(sub ?? null)
+    setIsLoading(false)
   }, [id])
 
   if (isLoading) {
@@ -146,19 +143,19 @@ export default function ReportPage() {
       icon: CheckCircle2,
       label: "Keep",
       description: "This subscription provides excellent value. Continue using it.",
-      className: "text-[oklch(0.7_0.18_150)] bg-[oklch(0.7_0.18_150/0.1)]",
+      className: "text-green-600 dark:text-green-400 bg-green-500/10",
     },
     downgrade: {
       icon: ArrowDownCircle,
       label: "Consider Downgrade",
       description: "Look for a cheaper plan or alternative that meets your needs.",
-      className: "text-[oklch(0.75_0.15_80)] bg-[oklch(0.75_0.15_80/0.1)]",
+      className: "text-yellow-600 dark:text-yellow-400 bg-yellow-500/10",
     },
     cancel: {
       icon: XCircle,
       label: "Cancel",
       description: "This subscription doesn't provide enough value. Consider canceling.",
-      className: "text-[oklch(0.6_0.2_25)] bg-[oklch(0.6_0.2_25/0.1)]",
+      className: "text-red-600 dark:text-red-400 bg-red-500/10",
     },
   }
 
@@ -168,25 +165,25 @@ export default function ReportPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
             <Link href="/">
               <ArrowLeft className="h-5 w-5" />
               <span className="sr-only">Back to dashboard</span>
             </Link>
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{subscription.name}</h1>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{subscription.name}</h1>
               <StatusBadge status={subscription.status} />
             </div>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
               {subscription.category} • ${subscription.monthlyCost.toFixed(2)}/month
             </p>
           </div>
         </div>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild className="self-start sm:self-auto">
           <Link href={`/add?edit=${subscription.id}`}>
             <Pencil className="h-4 w-4 mr-2" />
             Edit
@@ -197,7 +194,10 @@ export default function ReportPage() {
       {/* ROI Score Card */}
       <Card>
         <CardHeader>
-          <CardTitle>ROI Score</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            ROI Score
+            <ROITooltip />
+          </CardTitle>
           <CardDescription>Overall return on investment analysis</CardDescription>
         </CardHeader>
         <CardContent>
@@ -268,11 +268,11 @@ export default function ReportPage() {
               </div>
               <p className="text-sm opacity-90">{recConfig.description}</p>
             </div>
-            <div className="mt-4 flex gap-3">
+            <div className="mt-4 flex flex-col sm:flex-row gap-3">
               <Button asChild className="flex-1">
                 <Link href={`/add?edit=${subscription.id}`}>Review Details</Link>
               </Button>
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild className="sm:flex-initial">
                 <Link href="/">Back to Dashboard</Link>
               </Button>
             </div>

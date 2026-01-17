@@ -12,8 +12,9 @@ import { ROIProgress } from "@/components/roi-progress"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { EmptyState } from "@/components/empty-state"
 import type { Subscription } from "@/lib/types"
-import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown } from "lucide-react"
+import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
+import { ROITooltip } from "@/components/roi-tooltip"
 
 interface SubscriptionTableProps {
   subscriptions: Subscription[]
@@ -23,11 +24,14 @@ interface SubscriptionTableProps {
 type SortField = "name" | "monthlyCost" | "roiScore" | "category"
 type SortDirection = "asc" | "desc"
 
+const ITEMS_PER_PAGE = 10
+
 export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTableProps) {
   const [search, setSearch] = useState("")
   const [sortField, setSortField] = useState<SortField>("roiScore")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const filteredAndSorted = subscriptions
     .filter(
@@ -42,6 +46,17 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
       }
       return (a[sortField] - b[sortField]) * modifier
     })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const paginatedData = filteredAndSorted.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+
+  // Reset to page 1 when search changes
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setCurrentPage(1)
+  }
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -96,7 +111,7 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
           <Input
             placeholder="Search subscriptions..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -149,8 +164,11 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
                 className="cursor-pointer hover:text-foreground hidden md:table-cell"
                 onClick={() => handleSort("roiScore")}
               >
-                ROI Score
-                <SortIndicator field="roiScore" />
+                <span className="inline-flex items-center gap-1">
+                  ROI Score
+                  <ROITooltip />
+                  <SortIndicator field="roiScore" />
+                </span>
               </TableHead>
               <TableHead className="hidden lg:table-cell">Status</TableHead>
               <TableHead className="w-[70px]">
@@ -159,7 +177,7 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSorted.map((sub) => (
+            {paginatedData.map((sub) => (
               <TableRow key={sub.id}>
                 <TableCell className="font-medium">{sub.name}</TableCell>
                 <TableCell className="hidden sm:table-cell text-muted-foreground">{sub.category}</TableCell>
@@ -209,6 +227,38 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
 
       {filteredAndSorted.length === 0 && subscriptions.length > 0 && (
         <div className="text-center py-8 text-muted-foreground">No subscriptions found matching your search.</div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredAndSorted.length)} of {filteredAndSorted.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Previous page</span>
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Next page</span>
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Dialog */}

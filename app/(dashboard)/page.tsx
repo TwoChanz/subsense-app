@@ -28,14 +28,9 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setSubscriptions(getSubscriptions())
-      setKpis(calculateKPIs())
-      setIsLoading(false)
-    }, 500)
-
-    return () => clearTimeout(timer)
+    setSubscriptions(getSubscriptions())
+    setKpis(calculateKPIs())
+    setIsLoading(false)
   }, [])
 
   const handleDelete = (id: string) => {
