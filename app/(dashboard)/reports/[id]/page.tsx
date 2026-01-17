@@ -86,9 +86,10 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   }
 
   const breakdown = generateCategoryBreakdown(
-    subscription.usageFrequency,
-    subscription.importance,
+    subscription.usageFrequency as "daily" | "weekly" | "monthly" | "rare",
+    subscription.importance as "low" | "medium" | "high",
     subscription.monthlyCost,
+    subscription.category,
   )
 
   const recommendation = getRecommendation(subscription.roiScore)

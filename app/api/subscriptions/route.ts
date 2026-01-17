@@ -62,8 +62,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Calculate ROI score and status
-    const roiScore = calculateROIScore(usageFrequency, importance, monthlyCost)
+    // Calculate ROI score and status (now category-aware)
+    const roiScore = calculateROIScore(usageFrequency, importance, monthlyCost, category)
     const status = getStatusFromScore(roiScore)
 
     const subscription = await prisma.subscription.create({

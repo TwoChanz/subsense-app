@@ -163,7 +163,7 @@ export function isNameDuplicate(name: string, excludeId?: string): boolean {
 }
 
 export function addSubscription(data: Omit<Subscription, "id" | "roiScore" | "status" | "createdAt">): Subscription {
-  const roiScore = calculateROIScore(data.usageFrequency, data.importance, data.monthlyCost)
+  const roiScore = calculateROIScore(data.usageFrequency, data.importance, data.monthlyCost, data.category)
   const status = getStatusFromScore(roiScore)
 
   const newSubscription: Subscription = {
@@ -189,7 +189,7 @@ export function updateSubscription(
   const existing = subscriptions[index]
   const updated = { ...existing, ...data }
 
-  const roiScore = calculateROIScore(updated.usageFrequency, updated.importance, updated.monthlyCost)
+  const roiScore = calculateROIScore(updated.usageFrequency, updated.importance, updated.monthlyCost, updated.category)
   const status = getStatusFromScore(roiScore)
 
   const updatedSubscription: Subscription = {

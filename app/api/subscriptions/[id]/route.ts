@@ -91,15 +91,17 @@ export async function PATCH(
       }
     }
 
-    // Calculate new ROI score if any relevant fields changed
+    // Calculate new ROI score if any relevant fields changed (now category-aware)
     const updatedUsageFrequency = usageFrequency ?? existing.usageFrequency
     const updatedImportance = importance ?? existing.importance
     const updatedMonthlyCost = monthlyCost ?? existing.monthlyCost
+    const updatedCategory = category ?? existing.category
 
     const roiScore = calculateROIScore(
       updatedUsageFrequency as "daily" | "weekly" | "monthly" | "rare",
       updatedImportance as "low" | "medium" | "high",
-      updatedMonthlyCost
+      updatedMonthlyCost,
+      updatedCategory
     )
     const status = getStatusFromScore(roiScore)
 

@@ -93,13 +93,14 @@ export default function AddSubscriptionPage() {
     return () => clearTimeout(timeoutId)
   }, [name, checkDuplicate])
 
-  // Calculate preview ROI
+  // Calculate preview ROI (now category-aware)
   const previewROI =
-    usageFrequency && importance && monthlyCost
+    usageFrequency && importance && monthlyCost && category
       ? calculateROIScore(
           usageFrequency as UsageFrequency,
           importance as Importance,
           Number.parseFloat(monthlyCost) || 0,
+          category,
         )
       : null
 

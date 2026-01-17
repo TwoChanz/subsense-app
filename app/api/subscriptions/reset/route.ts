@@ -72,12 +72,13 @@ export async function POST() {
       where: { userId: user.id },
     })
 
-    // Create demo subscriptions
+    // Create demo subscriptions with category-aware scoring
     const subscriptionsWithScores = demoSubscriptions.map((sub) => {
       const roiScore = calculateROIScore(
         sub.usageFrequency as "daily" | "weekly" | "monthly" | "rare",
         sub.importance as "low" | "medium" | "high",
-        sub.monthlyCost
+        sub.monthlyCost,
+        sub.category
       )
       const status = getStatusFromScore(roiScore)
 
