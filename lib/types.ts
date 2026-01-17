@@ -43,3 +43,122 @@ export interface CategoryBreakdown {
   replacementRisk: number
   cancellationFriction: number
 }
+
+// Action Queue types
+export type ActionType = "cancel" | "downgrade" | "review" | "trial_ending" | "renewal_reminder"
+
+export interface ActionItem {
+  id: string
+  subscriptionId: string
+  subscriptionName: string
+  type: ActionType
+  title: string
+  description: string
+  potentialSavings?: number // monthly savings
+  dueDate?: Date | null
+  priority: "high" | "medium" | "low"
+  snoozedUntil?: Date | null
+  createdAt: Date
+}
+
+// User engagement data
+export interface UserStreakData {
+  currentStreak: number
+  longestStreak: number
+  lastReviewDate: Date | null
+  totalReviewsCompleted: number
+  streakFreezeAvailable: boolean
+  lastStreakFreezeUsed: Date | null
+}
+
+export interface SavingsData {
+  totalSavedThisMonth: number
+  totalSavedThisYear: number
+  totalSavedAllTime: number
+  subscriptionsCanceled: number
+  subscriptionsDowngraded: number
+}
+
+export interface UserData {
+  id: string
+  streaks: UserStreakData
+  savings: SavingsData
+  completedActions: string[] // IDs of completed action items
+  snoozedActions: Record<string, Date> // actionId -> snoozedUntil date
+  badges: UserBadge[]
+  lastActiveDate: Date
+}
+
+// Badge/Achievement system
+export type BadgeType =
+  | "first_review"
+  | "streak_7"
+  | "streak_30"
+  | "saved_100"
+  | "saved_500"
+  | "saved_1000"
+  | "cut_first"
+  | "cut_5"
+  | "optimizer"
+
+export interface UserBadge {
+  type: BadgeType
+  earnedAt: Date
+  name: string
+  description: string
+}
+
+// Cancellation guides
+export interface CancellationStep {
+  stepNumber: number
+  instruction: string
+  link?: string
+}
+
+export interface CancellationGuide {
+  serviceName: string
+  difficulty: CancellationFriction
+  estimatedTime: string
+  steps: CancellationStep[]
+  tips: string[]
+  canCancelOnline: boolean
+  refundPolicy?: string
+}
+
+// Weekly digest data
+export interface WeeklyDigestData {
+  weekStartDate: Date
+  totalSpend: number
+  upcomingRenewals: Array<{
+    subscription: Subscription
+    renewalDate: Date
+    amount: number
+  }>
+  lowestROISubscription: Subscription | null
+  actionItemsCount: number
+  streakStatus: {
+    current: number
+    isAtRisk: boolean
+  }
+  savingsThisWeek: number
+}
+
+// Report types for shareable content
+export interface SavingsReport {
+  generatedAt: Date
+  period: "monthly" | "annual"
+  periodStart: Date
+  periodEnd: Date
+  totalSubscriptions: number
+  totalMonthlySpend: number
+  totalSaved: number
+  subscriptionsCanceled: number
+  subscriptionsDowngraded: number
+  topCancelledServices: string[]
+  averageROIScore: number
+  healthBreakdown: {
+    good: number
+    review: number
+    cut: number
+  }
+}

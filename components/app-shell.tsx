@@ -7,7 +7,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { UserButton } from "@clerk/nextjs"
 import { Logo } from "@/components/logo"
-import { LayoutDashboard, PlusCircle, Settings, Menu, X } from "lucide-react"
+import { LayoutDashboard, PlusCircle, Settings, Menu, X, CalendarDays, Zap, BarChart3 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -19,6 +19,8 @@ interface AppShellProps {
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/add", label: "Add Subscription", icon: PlusCircle },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
