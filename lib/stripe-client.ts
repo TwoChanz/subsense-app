@@ -26,3 +26,20 @@ export async function createCheckoutSession(email?: string) {
   const { url } = await response.json()
   return url
 }
+
+export async function createPortalSession() {
+  const response = await fetch("/api/stripe/portal", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || "Failed to create portal session")
+  }
+
+  const { url } = await response.json()
+  return url
+}

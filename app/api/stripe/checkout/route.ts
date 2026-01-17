@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { stripe, PRO_PLAN } from "@/lib/stripe"
+import { requireUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authenticated user
+    const user = await requireUser()
+
     const body = await request.json()
     const { email } = body
 
@@ -30,7 +34,7 @@ export async function POST(request: NextRequest) {
       priceId = price.id
     }
 
-    // Create Stripe checkout session
+    // Create Stripe checkout session with userId in metadata
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -40,17 +44,26 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      customer_email: email || undefined,
+      customer_email: email || user.email || undefined,
       success_url: `${appUrl}/settings?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/settings?canceled=true`,
       metadata: {
         plan: "pro",
+        userId: user.id,
       },
     })
 
     return NextResponse.json({ url: session.url })
   } catch (error) {
     console.error("Stripe checkout error:", error)
+
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Please sign in to upgrade" },
+        { status: 401 }
+      )
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create checkout session" },
       { status: 500 }

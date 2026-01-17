@@ -8,12 +8,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { resetSubscriptions as apiResetSubscriptions, fetchSettings, updateSettings } from "@/lib/api"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { UpgradeModal } from "@/components/upgrade-modal"
+import { ProStatusBadge } from "@/components/pro-badge"
+import { ProSwitchGate } from "@/components/pro-gate"
+import { createPortalSession } from "@/lib/stripe-client"
 import { toast } from "sonner"
 import { useTheme } from "next-themes"
-import { Moon, Sun, Monitor, RotateCcw, Sparkles } from "lucide-react"
+import { Moon, Sun, Monitor, RotateCcw, Sparkles, CreditCard, AlertTriangle, Lock, Loader2 } from "lucide-react"
+import type { ProStatus } from "@/lib/pro"
+
+interface UserProStatus {
+  isPro: boolean
+  proStatus: ProStatus
+  stripeCurrentPeriodEnd: string | null
+}
 
 function SettingsContent() {
   const { theme, setTheme } = useTheme()
@@ -25,14 +36,23 @@ function SettingsContent() {
   const [emailAddress, setEmailAddress] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isResetting, setIsResetting] = useState(false)
+  const [userProStatus, setUserProStatus] = useState<UserProStatus | null>(null)
+  const [isPortalLoading, setIsPortalLoading] = useState(false)
 
-  // Load settings from API on mount
+  // Load settings and user status from API on mount
   const loadSettings = useCallback(async () => {
     try {
-      const settings = await fetchSettings()
+      const [settings, statusResponse] = await Promise.all([
+        fetchSettings(),
+        fetch("/api/user/status").then((res) => res.json()),
+      ])
       setNotifications(settings.pushNotifications)
       setEmailReports(settings.emailReports)
       setEmailAddress(settings.emailAddress)
+
+      if (statusResponse.proStatus) {
+        setUserProStatus(statusResponse.proStatus)
+      }
     } catch (error) {
       console.error("Failed to load settings:", error)
       toast.error("Failed to load settings")
@@ -123,6 +143,35 @@ function SettingsContent() {
     }
   }
 
+  const handleManageSubscription = async () => {
+    setIsPortalLoading(true)
+    try {
+      const portalUrl = await createPortalSession()
+      if (portalUrl) {
+        window.location.href = portalUrl
+      }
+    } catch (error) {
+      console.error("Portal error:", error)
+      toast.error("Failed to open billing portal", {
+        description: error instanceof Error ? error.message : "Please try again",
+      })
+    } finally {
+      setIsPortalLoading(false)
+    }
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return null
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  }
+
+  const isPro = userProStatus?.isPro ?? false
+  const proStatus = userProStatus?.proStatus ?? "FREE"
+
   if (isLoading) {
     return <SettingsPageSkeleton />
   }
@@ -196,11 +245,29 @@ function SettingsContent() {
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="email-reports">Email Reports</Label>
-              <p className="text-sm text-muted-foreground">Weekly summary of your subscription ROI</p>
+            <div className="space-y-0.5 flex items-center gap-2">
+              {!isPro && <Lock className="h-4 w-4 text-muted-foreground" />}
+              <div>
+                <Label htmlFor="email-reports">Email Reports</Label>
+                <p className="text-sm text-muted-foreground">
+                  Weekly summary of your subscription ROI
+                  {!isPro && <span className="text-amber-500"> (Pro)</span>}
+                </p>
+              </div>
             </div>
-            <Switch id="email-reports" checked={emailReports} onCheckedChange={handleEmailReportsChange} />
+            <ProSwitchGate
+              isPro={isPro}
+              checked={emailReports}
+              onCheckedChange={handleEmailReportsChange}
+              email={emailAddress}
+            >
+              <Switch
+                id="email-reports"
+                checked={emailReports}
+                onCheckedChange={handleEmailReportsChange}
+                disabled={!isPro}
+              />
+            </ProSwitchGate>
           </div>
         </CardContent>
       </Card>
@@ -230,22 +297,80 @@ function SettingsContent() {
         </CardContent>
       </Card>
 
+      {/* Past Due Warning Banner */}
+      {proStatus === "PAST_DUE" && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Your payment is past due. Please update your payment method to continue enjoying Pro features.</span>
+            <Button variant="outline" size="sm" onClick={handleManageSubscription} disabled={isPortalLoading}>
+              {isPortalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Payment"}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Billing */}
       <Card>
         <CardHeader>
-          <CardTitle>Billing</CardTitle>
-          <CardDescription>Manage your subscription and payment methods</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Billing</CardTitle>
+              <CardDescription>Manage your subscription and payment methods</CardDescription>
+            </div>
+            <ProStatusBadge status={proStatus} />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border border-dashed border-border p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-4">
-              Unlock advanced features with SubSense Pro
-            </p>
-            <Button variant="default" onClick={() => setUpgradeModalOpen(true)}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Upgrade to Pro
-            </Button>
-          </div>
+          {isPro ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">SubSense Pro</p>
+                  <p className="text-sm text-muted-foreground">$4.99/month</p>
+                </div>
+                {userProStatus?.stripeCurrentPeriodEnd && (
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">
+                      {proStatus === "CANCELED" ? "Access until" : "Renews on"}
+                    </p>
+                    <p className="text-sm font-medium">
+                      {formatDate(userProStatus.stripeCurrentPeriodEnd)}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <Separator />
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleManageSubscription}
+                disabled={isPortalLoading}
+              >
+                {isPortalLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Opening portal...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Manage Subscription
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                Unlock advanced features with SubSense Pro
+              </p>
+              <Button variant="default" onClick={() => setUpgradeModalOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Upgrade to Pro
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
