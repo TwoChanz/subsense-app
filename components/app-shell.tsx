@@ -2,12 +2,12 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { UserButton } from "@clerk/nextjs"
 import { Logo } from "@/components/logo"
-import { LayoutDashboard, PlusCircle, Settings, Menu, X, CalendarDays, Zap, BarChart3 } from "lucide-react"
+import { LayoutDashboard, PlusCircle, Settings, Menu, X, CalendarDays, BarChart3, Receipt, LineChart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -16,17 +16,40 @@ interface AppShellProps {
   children: React.ReactNode
 }
 
-const navItems = [
+interface NavItem {
+  href: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  proOnly?: boolean
+}
+
+const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/add", label: "Add Subscription", icon: PlusCircle },
+  { href: "/analytics", label: "Analytics", icon: LineChart },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/billing", label: "Billing", icon: Receipt, proOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isPro, setIsPro] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/user/status")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.proStatus?.isPro) {
+          setIsPro(true)
+        }
+      })
+      .catch(() => {
+        // Silently fail - non-Pro is the default
+      })
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,25 +86,27 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </Link>
-            )
-          })}
+          {navItems
+            .filter((item) => !item.proOnly || isPro)
+            .map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              )
+            })}
         </nav>
 
         {/* Footer */}

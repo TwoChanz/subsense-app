@@ -164,3 +164,37 @@ export async function updateSettings(data: Partial<UserSettingsData>): Promise<U
   }
   return res.json()
 }
+
+// Invoices API
+export interface InvoiceItem {
+  id: string
+  number: string | null
+  amountPaid: number
+  amountDue: number
+  currency: string
+  status: string | null
+  created: number
+  hostedInvoiceUrl: string | null | undefined
+  invoicePdf: string | null | undefined
+  periodStart: number
+  periodEnd: number
+}
+
+export async function fetchInvoices(): Promise<InvoiceItem[]> {
+  const res = await fetch("/api/stripe/invoices")
+  if (!res.ok) {
+    throw new Error("Failed to fetch invoices")
+  }
+  return res.json()
+}
+
+// Analytics API
+import type { AnalyticsSummary } from "./analytics"
+
+export async function fetchAnalyticsSummary(months: number = 6): Promise<AnalyticsSummary> {
+  const res = await fetch(`/api/analytics/summary?months=${months}`)
+  if (!res.ok) {
+    throw new Error("Failed to fetch analytics summary")
+  }
+  return res.json()
+}

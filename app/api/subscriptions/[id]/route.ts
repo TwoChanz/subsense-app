@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUser } from "@/lib/auth"
 import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
+import { captureSnapshot } from "@/lib/snapshot"
 
 const updateSubscriptionSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -159,6 +160,16 @@ export async function PATCH(
         status,
       },
     })
+
+    // Capture snapshot if significant values changed (cost, score, or status)
+    const costChanged = existing.monthlyCost !== subscription.monthlyCost
+    const scoreChanged = existing.roiScore !== subscription.roiScore
+    const statusChanged = existing.status !== subscription.status
+    const categoryChanged = existing.category !== subscription.category
+
+    if (costChanged || scoreChanged || statusChanged || categoryChanged) {
+      await captureSnapshot(subscription, user.id)
+    }
 
     return NextResponse.json(subscription)
   } catch (error) {

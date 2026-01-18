@@ -9,13 +9,14 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  clerkId       String         @unique
+  id            String                  @id @default(cuid())
+  clerkId       String                  @unique
   email         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
   subscriptions Subscription[]
   settings      UserSettings?
+  snapshots     SubscriptionSnapshot[]
 
   // Stripe Pro fields
   stripeCustomerId       String?   @unique
@@ -26,7 +27,7 @@ model User {
 }
 
 model Subscription {
-  id                String   @id @default(cuid())
+  id                String                 @id @default(cuid())
   name              String
   category          String
   secondaryCategory String?
@@ -35,10 +36,11 @@ model Subscription {
   importance        String
   roiScore          Int
   status            String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots         SubscriptionSnapshot[]
 
   // Billing cycle and renewal
   billingCycle         String    @default("monthly")
@@ -62,4 +64,24 @@ model UserSettings {
   emailAddress      String  @default("")
   userId            String  @unique
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionSnapshot {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  snapshotMonth String // "YYYY-MM" format
+  monthlyCost   Float
+  roiScore      Int
+  status        String
+  category      String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([subscriptionId, snapshotMonth])
+  @@index([userId, snapshotMonth])
 }

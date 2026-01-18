@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUser } from "@/lib/auth"
 import { calculateROIScore, getStatusFromScore } from "@/lib/scoring"
+import { captureSnapshot } from "@/lib/snapshot"
 
 const createSubscriptionSchema = z.object({
   name: z.string().min(1).max(100),
@@ -118,6 +119,9 @@ export async function POST(request: Request) {
         trialReminderDays,
       },
     })
+
+    // Capture initial snapshot for analytics
+    await captureSnapshot(subscription, user.id)
 
     return NextResponse.json(subscription, { status: 201 })
   } catch (error) {
