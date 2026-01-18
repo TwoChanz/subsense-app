@@ -20,6 +20,9 @@ const updateSubscriptionSchema = z.object({
   trialEndDate: z.string().datetime().optional().nullable(),
   trialReminderEnabled: z.boolean().optional(),
   trialReminderDays: z.number().min(1).max(30).optional(),
+  // Vendor cancel-link fields
+  vendorId: z.string().optional().nullable(),
+  cancelUrl: z.string().max(2000).optional().nullable(),
 })
 
 export async function GET(
@@ -34,6 +37,9 @@ export async function GET(
       where: {
         id,
         userId: user.id,
+      },
+      include: {
+        vendor: true,
       },
     })
 
@@ -95,6 +101,8 @@ export async function PATCH(
       trialEndDate,
       trialReminderEnabled,
       trialReminderDays,
+      vendorId,
+      cancelUrl,
     } = validation.data
 
     // Check for duplicate name if name is being updated
@@ -156,8 +164,13 @@ export async function PATCH(
         ...(trialEndDate !== undefined && { trialEndDate: trialEndDate ? new Date(trialEndDate) : null }),
         ...(trialReminderEnabled !== undefined && { trialReminderEnabled }),
         ...(trialReminderDays !== undefined && { trialReminderDays }),
+        ...(vendorId !== undefined && { vendorId: vendorId || null }),
+        ...(cancelUrl !== undefined && { cancelUrl: cancelUrl || null }),
         roiScore,
         status,
+      },
+      include: {
+        vendor: true,
       },
     })
 

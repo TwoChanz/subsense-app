@@ -1,19 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import Link from "next/link"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StatusBadge } from "@/components/status-badge"
 import { ROIProgress } from "@/components/roi-progress"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { EmptyState } from "@/components/empty-state"
+import { CancelPrompt } from "@/components/cancel-prompt"
 import type { Subscription } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
-import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Clock } from "lucide-react"
+import { MoreHorizontal, Search, Eye, Pencil, Trash2, Package, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Clock, XCircle } from "lucide-react"
 import { ROITooltip } from "@/components/roi-tooltip"
 
 interface SubscriptionTableProps {
@@ -42,6 +43,7 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [cancelSubscription, setCancelSubscription] = useState<Subscription | null>(null)
 
   const filteredAndSorted = subscriptions
     .filter(
@@ -93,6 +95,11 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
       setDeleteId(null)
     }
   }
+
+  const handleCancelUrlUpdated = useCallback((subscriptionId: string, cancelUrl: string) => {
+    // The subscription will be refetched on page refresh
+    // For now, just close the dialog
+  }, [])
 
   const subscriptionToDelete = subscriptions.find((s) => s.id === deleteId)
 
@@ -244,6 +251,13 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
                           Edit
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setCancelSubscription(sub)}
+                      >
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Cancel Now
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => setDeleteId(sub.id)}
@@ -305,6 +319,14 @@ export function SubscriptionTable({ subscriptions, onDelete }: SubscriptionTable
         confirmLabel="Delete"
         onConfirm={handleDelete}
         variant="destructive"
+      />
+
+      {/* Cancel Subscription Prompt */}
+      <CancelPrompt
+        subscription={cancelSubscription}
+        isOpen={!!cancelSubscription}
+        onOpenChange={(open) => !open && setCancelSubscription(null)}
+        onCancelUrlUpdated={handleCancelUrlUpdated}
       />
     </div>
   )

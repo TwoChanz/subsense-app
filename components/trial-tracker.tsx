@@ -1,11 +1,12 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState, useCallback } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { CancelPrompt } from "@/components/cancel-prompt"
 import type { Subscription } from "@/lib/types"
 import {
   Clock,
@@ -13,7 +14,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Calendar,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -41,6 +41,19 @@ export function TrialTracker({
   maxItems = 5,
   showAddButton = true,
 }: TrialTrackerProps) {
+  const [cancelSubscription, setCancelSubscription] = useState<Subscription | null>(null)
+
+  const handleCancelClick = useCallback((subscriptionId: string) => {
+    const sub = subscriptions.find(s => s.id === subscriptionId)
+    if (sub) {
+      setCancelSubscription(sub)
+    }
+  }, [subscriptions])
+
+  const handleCancelUrlUpdated = useCallback((subscriptionId: string, cancelUrl: string) => {
+    // The subscription will be refetched on page refresh
+  }, [])
+
   const trials = useMemo(() => {
     const now = new Date()
 
@@ -153,7 +166,7 @@ export function TrialTracker({
           <TrialItem
             key={trial.subscription.id}
             trial={trial}
-            onCancel={onCancel}
+            onCancel={handleCancelClick}
             onKeep={onKeep}
           />
         ))}
@@ -168,6 +181,14 @@ export function TrialTracker({
           </div>
         )}
       </CardContent>
+
+      {/* Cancel Subscription Prompt */}
+      <CancelPrompt
+        subscription={cancelSubscription}
+        isOpen={!!cancelSubscription}
+        onOpenChange={(open) => !open && setCancelSubscription(null)}
+        onCancelUrlUpdated={handleCancelUrlUpdated}
+      />
     </Card>
   )
 }

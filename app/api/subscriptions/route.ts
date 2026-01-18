@@ -20,6 +20,9 @@ const createSubscriptionSchema = z.object({
   trialEndDate: z.string().datetime().optional().nullable(),
   trialReminderEnabled: z.boolean().default(true),
   trialReminderDays: z.number().min(1).max(30).default(3),
+  // Vendor cancel-link fields
+  vendorId: z.string().optional().nullable(),
+  cancelUrl: z.string().max(2000).optional().nullable(),
 })
 
 export async function GET() {
@@ -29,6 +32,9 @@ export async function GET() {
     const subscriptions = await prisma.subscription.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      include: {
+        vendor: true,
+      },
     })
 
     return NextResponse.json(subscriptions)
@@ -69,6 +75,8 @@ export async function POST(request: Request) {
       trialEndDate,
       trialReminderEnabled,
       trialReminderDays,
+      vendorId,
+      cancelUrl,
     } = validation.data
 
     // Check for duplicate name
@@ -117,6 +125,11 @@ export async function POST(request: Request) {
         trialEndDate: trialEndDate ? new Date(trialEndDate) : null,
         trialReminderEnabled,
         trialReminderDays,
+        vendorId: vendorId || null,
+        cancelUrl: cancelUrl || null,
+      },
+      include: {
+        vendor: true,
       },
     })
 

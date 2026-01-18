@@ -17,6 +17,7 @@ model User {
   subscriptions Subscription[]
   settings      UserSettings?
   snapshots     SubscriptionSnapshot[]
+  vendorFeedback VendorLinkFeedback[]
 
   // Stripe Pro fields
   stripeCustomerId       String?   @unique
@@ -53,6 +54,11 @@ model Subscription {
   trialReminderEnabled Boolean   @default(true)
   trialReminderDays    Int       @default(3)
 
+  // Vendor cancel-link directory
+  vendorId  String?
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  cancelUrl String?  // user-provided override
+
   @@unique([userId, name])
   @@index([userId])
 }
@@ -84,4 +90,37 @@ model SubscriptionSnapshot {
 
   @@unique([subscriptionId, snapshotMonth])
   @@index([userId, snapshotMonth])
+}
+
+model Vendor {
+  id             String               @id @default(cuid())
+  name           String
+  domain         String               @unique
+  billingUrl     String?
+  cancelHelpUrl  String?
+  source         String               @default("curated") // curated | user_submitted
+  confidence     String               @default("medium") // high | medium | low
+  lastVerifiedAt DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  subscriptions Subscription[]
+  feedback      VendorLinkFeedback[]
+
+  @@index([name])
+  @@index([domain])
+}
+
+model VendorLinkFeedback {
+  id        String   @id @default(cuid())
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   @default("open_billing_link")
+  result    String // success | fail | skip
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+  @@index([userId])
 }

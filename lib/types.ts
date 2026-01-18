@@ -28,6 +28,36 @@ export interface Subscription {
   trialEndDate?: Date | null
   trialReminderEnabled: boolean
   trialReminderDays: number
+  // Vendor cancel-link directory
+  vendorId?: string | null
+  vendor?: Vendor | null
+  cancelUrl?: string | null
+}
+
+// Vendor cancel-link directory types
+export type VendorSource = 'curated' | 'user_submitted'
+export type VendorConfidence = 'high' | 'medium' | 'low'
+
+export interface Vendor {
+  id: string
+  name: string
+  domain: string
+  billingUrl?: string | null
+  cancelHelpUrl?: string | null
+  source: VendorSource
+  confidence: VendorConfidence
+  lastVerifiedAt?: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface VendorLinkFeedback {
+  id: string
+  vendorId: string
+  userId: string
+  action: string
+  result: 'success' | 'fail' | 'skip'
+  createdAt: Date
 }
 
 export interface KPIData {

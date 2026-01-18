@@ -1,4 +1,4 @@
-import type { Subscription, KPIData } from "./types"
+import type { Subscription, KPIData, Vendor } from "./types"
 
 // API response types
 interface ApiResponse<T> {
@@ -53,6 +53,9 @@ export async function createSubscription(data: {
   trialEndDate?: string | null
   trialReminderEnabled?: boolean
   trialReminderDays?: number
+  // Vendor cancel-link fields
+  vendorId?: string | null
+  cancelUrl?: string | null
 }): Promise<Subscription> {
   const res = await fetch("/api/subscriptions", {
     method: "POST",
@@ -84,6 +87,9 @@ export async function updateSubscription(
     trialEndDate?: string | null
     trialReminderEnabled?: boolean
     trialReminderDays?: number
+    // Vendor cancel-link fields
+    vendorId?: string | null
+    cancelUrl?: string | null
   }
 ): Promise<Subscription> {
   const res = await fetch(`/api/subscriptions/${id}`, {
@@ -197,4 +203,63 @@ export async function fetchAnalyticsSummary(months: number = 6): Promise<Analyti
     throw new Error("Failed to fetch analytics summary")
   }
   return res.json()
+}
+
+// Vendor API
+
+function convertVendorDates(vendor: Record<string, unknown>): Vendor {
+  return {
+    ...vendor,
+    createdAt: new Date(vendor.createdAt as string),
+    updatedAt: new Date(vendor.updatedAt as string),
+    lastVerifiedAt: vendor.lastVerifiedAt ? new Date(vendor.lastVerifiedAt as string) : null,
+  } as Vendor
+}
+
+export async function fetchVendors(search?: string): Promise<Vendor[]> {
+  const params = new URLSearchParams()
+  if (search) {
+    params.append("search", search)
+  }
+  const url = `/api/vendors${params.toString() ? `?${params}` : ""}`
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error("Failed to fetch vendors")
+  }
+  const data = await res.json()
+  return data.map(convertVendorDates)
+}
+
+export async function createVendor(data: {
+  name: string
+  domain: string
+  billingUrl?: string | null
+  cancelHelpUrl?: string | null
+}): Promise<Vendor> {
+  const res = await fetch("/api/vendors", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to create vendor")
+  }
+  const result = await res.json()
+  return convertVendorDates(result)
+}
+
+export async function submitVendorFeedback(
+  vendorId: string,
+  result: "success" | "fail" | "skip"
+): Promise<void> {
+  const res = await fetch(`/api/vendors/${vendorId}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ result }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to submit feedback")
+  }
 }
