@@ -12,6 +12,7 @@ import { SavingsSummary } from "@/components/savings-summary"
 import { RenewalCalendar } from "@/components/renewal-calendar"
 import { TrialTracker } from "@/components/trial-tracker"
 import { SubscriptionHealth } from "@/components/subscription-health"
+import { ShareableSavingsCard, useShareSavings } from "@/components/shareable-savings-card"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -53,6 +54,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
+  const { isOpen: shareOpen, setIsOpen: setShareOpen, openShareDialog } = useShareSavings()
 
   // Prevent hydration mismatch with Radix UI
   useEffect(() => {
@@ -302,7 +304,7 @@ export default function DashboardPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Savings Summary */}
             {mounted && userData && (
-              <SavingsSummary savings={userData.savings} />
+              <SavingsSummary savings={userData.savings} onShare={openShareDialog} />
             )}
 
             {/* Subscription Health */}
@@ -321,6 +323,17 @@ export default function DashboardPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Share Dialog */}
+      {mounted && userData && (
+        <ShareableSavingsCard
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          savings={userData.savings}
+          streak={streakStatus.current}
+          subscriptionCount={kpis?.subscriptionCount ?? 0}
+        />
+      )}
     </div>
   )
 }
